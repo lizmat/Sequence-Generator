@@ -110,7 +110,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method bool-only(--> Bool:D) { $!value + $!step <= $!upto }
     }
 
-    # return iterator for 2 numeric endpoints
+    # Return iterator for 2 numeric endpoints
     multi method iterator(
       Numeric:D \first, Numeric:D \endpoint, Int:D $no-first, Int:D $no-last
     --> Iterator:D) {
@@ -125,6 +125,13 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         $no-last
           ?? self.AllButLast(iterator)
           !! iterator
+    }
+
+    # Return iterator for numeric ... Whatever
+    multi method iterator(
+      Numeric:D \first, Whatever, Int:D $no-first, Int:D $
+    --> Iterator:D) {
+        UnendingStep.new(first - 1 + $no-first, 1)
     }
 
     # Return iterator for stepping for a single codepoint

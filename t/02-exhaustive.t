@@ -114,6 +114,9 @@ my @tests = (
   'simple decreasing sequence with one item on the LHS',
     1, -3.5, (1,0,-1,-2,-3),
 
+  'simple sequence with one item on the LHS',
+    1, *, 1..10,
+
   'single term sequence stringy',
     "a", "a", "a",
 
@@ -257,9 +260,6 @@ my @tests = (
 
 #  'tricky sequence with one item and closure on the LHS',
 #    (1,{1/((1/$_)+1)}), 11/60, (1,0.5,1/3,0.25,0.2,1/6,1/7,0.125,1/9,0.1),
-
-#  'simple sequence with one item on the LHS',
-#    1, *, 1..10,
 
 #  'simple additive sequence with two items on the LHS',
 #    (1,3), *, (1,3,5,7,9,11,13,15,17,19),
