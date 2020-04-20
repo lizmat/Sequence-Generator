@@ -40,6 +40,11 @@ The original implementation of the `...^` operator treated omission of endpoints
 
 This is generalized to **always** omit the last **generated** value, regardless of whether it actually compared exactly with the endpoint or not.
 
+Using .pred ends sequence if Failure
+------------------------------------
+
+The original implementation of the `...` operator would die if `.pred` was being used to generate the next value, and that would return a Failure. This has been changed to ending the sequence.
+
 AUTHOR
 ======
 

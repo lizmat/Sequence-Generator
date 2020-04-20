@@ -46,11 +46,9 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     multi method AllButLast(Iterator:D \iterator) {
         AllButLast.new(iterator)
     }
-#-------------------------------------------------------------------------------
 
-    proto method iterator(|) {*}
-
-    # Return unending iterator for constant numeric increment
+#-- classes and helper subs for creating actual iterators ----------------------
+    # Unending iterator for constant numeric increment
     class UnendingStep does Iterator {
         has $!value;
         has $!step;
@@ -64,7 +62,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method is-lazy(--> True) { }
     }
 
-    # Return iterator for constant numeric negative increment to given numeric
+    # Iterator for constant numeric negative increment to given numeric
     class StepDownto does PredictiveIterator {
         has $!value;
         has $!step;
@@ -87,7 +85,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method bool-only(--> Bool:D) { $!value + $!step >= $!downto }
     }
 
-    # Return iterator for constant numeric increment upto given numeric
+    # Iterator for constant numeric increment upto given numeric
     class StepUpto does PredictiveIterator {
         has $!value;
         has $!step;
@@ -110,31 +108,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method bool-only(--> Bool:D) { $!value + $!step <= $!upto }
     }
 
-    # Return iterator for 2 numeric endpoints
-    multi method iterator(
-      Numeric:D \first, Numeric:D \endpoint, Int:D $no-first, Int:D $no-last
-    --> Iterator:D) {
-        my \iterator := endpoint < first
-          ?? endpoint == -Inf
-            ?? UnendingStep.new(first + 1 - $no-first, -1)
-            !! StepDownto.new(first + 1 - $no-first, -1, endpoint)
-          !! endpoint == Inf
-            ?? UnendingStep.new(first - 1 + $no-first, +1)
-            !! StepUpto.new(first - 1 + $no-first, +1, endpoint);
-
-        $no-last
-          ?? self.AllButLast(iterator)
-          !! iterator
-    }
-
-    # Return iterator for numeric ... Whatever
-    multi method iterator(
-      Numeric:D \first, Whatever, Int:D $no-first, Int:D $
-    --> Iterator:D) {
-        UnendingStep.new(first - 1 + $no-first, 1)
-    }
-
-    # Return iterator for stepping for a single codepoint
+    # Iterator for stepping for a single codepoint
     class StepCodepoint does PredictiveIterator {
         has int $!codepoint;
         has int $!step;
@@ -207,10 +181,10 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     # as well as codepoints.  Each string is split into graphemes, and
     # associated graphemes are built into list_s of all the graphemes
     # basically $a.comb Z.. $b.comb.  The list_s of the last grapheme of
-    # each string is then separated and the remaining list_s's are equipped
+    # each string is then separated and the remaining list_s are equipped
     # with indices.  The result list_s is seeded with the first element
-    # of each of the list_s's.  Pulling a value will increment the pointer
-    # for the last grapheme: if it is out of range, then the next list_s's
+    # of each of the list_s.  Pulling a value will increment the pointer
+    # for the last grapheme: if it is out of range, then the next list_s
     # index will be incremented, the result seeded and the pointer for the
     # last grapheme reset.  Until all combinations have been produced.
     class StepMultipleCodepoints does Iterator {
@@ -317,6 +291,69 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method pull-one() { ... }
     }
 
+    # Unending iterator calling .succ
+    class UnendingSucc does Iterator {
+        has $!value;
+        method new(\first) {
+            nqp::p6bindattrinvres(nqp::create(self),self,'$!value',first)
+        }
+        method pull-one() {
+            $!value := (my \this := $!value).succ;
+            this
+        }
+        method is-lazy(--> True) { }
+    }
+
+    # Unending iterator calling .pred, stopping when exhausted
+    class UnendingPred does Iterator {
+        has $!value;
+        method new(\first) {
+            nqp::p6bindattrinvres(nqp::create(self),self,'$!value',first)
+        }
+        method pull-one() {
+            nqp::if(
+              nqp::eqaddr((my \this := $!value),IterationEnd),
+              IterationEnd,
+              nqp::if(
+                nqp::istype(($!value := this.pred),Failure),
+                nqp::stmts(
+                  $!value.Bool,  # mark Failure as handled
+                  ($!value := IterationEnd)
+                )
+              )
+            );
+            this
+        }
+        method is-lazy(--> True) { }
+    }
+
+#-- the actual iterator dispatch -----------------------------------------------
+    proto method iterator(|) {*}
+
+    # Return iterator for 2 numeric endpoints
+    multi method iterator(
+      Numeric:D \first, Numeric:D \endpoint, Int:D $no-first, Int:D $no-last
+    --> Iterator:D) {
+        my \iterator := endpoint < first
+          ?? endpoint == -Inf
+            ?? UnendingStep.new(first + 1 - $no-first, -1)
+            !! StepDownto.new(first + 1 - $no-first, -1, endpoint)
+          !! endpoint == Inf
+            ?? UnendingStep.new(first - 1 + $no-first, +1)
+            !! StepUpto.new(first - 1 + $no-first, +1, endpoint);
+
+        $no-last
+          ?? self.AllButLast(iterator)
+          !! iterator
+    }
+
+    # Return iterator for numeric ... Whatever
+    multi method iterator(
+      Numeric:D \first, Whatever, Int:D $no-first, Int:D $
+    --> Iterator:D) {
+        UnendingStep.new(first - 1 + $no-first, 1)
+    }
+
     # Return iterator for two string endpoints
     multi method iterator(
       Str:D $first, Str:D $last, Int:D $no-first, Int:D $no-last
@@ -336,6 +373,28 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                    $first, $last, $no-first, $no-last)
           !! SuccPredStr.new(                           # not same length
                $first, $last, $no-first, $no-last)
+    }
+
+    # Return iterator for anything unending
+    multi method iterator(
+      Any:D $first, Whatever, Int:D $no-first, Int:D $
+    --> Iterator:D) {
+        UnendingSucc.new($no-first ?? $first.succ !! $first)
+    }
+
+    # Return iterator for anything unending
+    multi method iterator(
+      Any:D $first, Numeric:D $endpoint, Int:D $no-first, Int:D $no-last
+    --> Iterator:D) {
+        $endpoint == Inf
+          ?? UnendingSucc.new($no-first ?? $first.succ !! $first)
+          !! $endpoint == -Inf
+            ?? $no-last
+              ?? self.AllButLast(
+                   UnendingPred.new($no-first ?? $first.pred !! $first)
+                 )
+              !! UnendingPred.new($no-first ?? $first.pred !! $first)
+            !! die
     }
 }
 
@@ -409,6 +468,12 @@ endpoints differently for numeric values:
 
 This is generalized to B<always> omit the last B<generated> value, regardless
 of whether it actually compared exactly with the endpoint or not.
+
+=head2 Using .pred ends sequence if Failure
+
+The original implementation of the C<...> operator would die if C<.pred> was
+being used to generate the next value, and that would return a Failure.  This
+has been changed to ending the sequence.
 
 =head1 AUTHOR
 

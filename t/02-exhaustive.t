@@ -11,6 +11,7 @@ use Sequence::Generator;
 # some arrays needed for tests
 #my @fib = 0, 1, *+* ... *;
 #my @abc = lazy <a b c>;
+my $today = Date.today;
 
 # some classes that are used
 my class H {
@@ -93,7 +94,7 @@ sub test-seq($description, Mu \seed, Mu \endpoint, \list) {
 
     # optionally run same test for Inf as endpoint
     test-seq($description, seed, Inf, [$result,$resultV,$Vresult,$VresultV])
-      if endpoint ~~ Whatever && !seed ~~ Array;
+      if endpoint ~~ Whatever;
 }
 
 # Set up tests, in order: description, LHS, RHS, result (either an Array,
@@ -113,9 +114,6 @@ my @tests = (
 
   'simple decreasing sequence with one item on the LHS',
     1, -3.5, (1,0,-1,-2,-3),
-
-  'simple sequence with one item on the LHS',
-    1, *, 1..10,
 
   'single term sequence stringy',
     "a", "a", "a",
@@ -143,6 +141,27 @@ my @tests = (
 
   'unicode blocks reversed',
     "█", "▁", ("█", "▇", "▆", "▅", "▄", "▃", "▂", "▁"),
+
+  'simple sequence with one item on the LHS going up',
+    1, *, 1..10,
+
+  'simple sequence with one item on the LHS going down',
+    10, -Inf, (10,9,8,7,6,5,4,3,2,1),
+
+  'sequence started with one letter going up',
+    'a', *, 'a' .. 'j',
+
+  'sequence started with one letter going down',
+    'k', -Inf, <k j i h g f e d c b>,
+
+  'sequence started with one letter going down with .pred failing',
+    'e', -Inf, <e d c b a>,
+
+  'unending sequence of Dates going up',
+    $today, *, $today .. $today + 9,
+
+  'unending sequence of Dates going down',
+    $today + 9, -Inf, ($today .. $today + 9).reverse,
 
 #  'multiple endpoints 0 3 0',
 #    [0,3], 0, [(0,1,2,3,2,1,0),(0,1,2,2,1),(1,2,3,1,0),(1,2,1)],
@@ -443,9 +462,6 @@ my @tests = (
 
 #  'sequence with RHS junction II',
 #    (11,9), 2|3, (11,9,7,5,3),
-
-#  'sequence started with one letter',
-#    'a', *, 'a' .. 'j',
 
 #  'sequence started with two different letters',
 #    <a b>, *, 'a' .. 'j',
