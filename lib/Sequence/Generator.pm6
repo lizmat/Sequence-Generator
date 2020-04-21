@@ -436,12 +436,14 @@ to be a bug (which is sometimes actually frozen into spectests).  On top of
 that, the development of the C<...> operator preceded the occurrence of the
 C<Iterator> role, so it actually does not use any of its benefits.
 
-This module started out as an attempt to make the C<...> operator (and friend)
+This module started out as an attempt to make the C<...> operator (and friends)
 much faster by re-implementing it using C<Iterator>s, rather than C<gather> /
 C<take>.  However, it became clear that fixing behaviour considered too
 magical or buggy, could break existing Raku code.  It was therefore decided to
 turn this work into this module, with the option of incorporating it into a
 later language version of Raku.
+
+This module is between 4x and 20x faster than the Raku 6.d implementation.
 
 =head1 BREAKING CHANGES
 
