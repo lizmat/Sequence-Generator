@@ -398,10 +398,11 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         }
         method new(\first, \lambda) { nqp::create(self)!SET-SELF(first,lambda) }
         method pull-one() { 
-            loop {
-                return $!value := $!lambda($!value);
-            }
-            IterationEnd
+            nqp::handle(
+              ($!value := $!lambda($!value)),
+              'LAST', ($!value := IterationEnd)
+            );
+            $!value
         }
         method is-lazy(--> True) { }
     }
@@ -422,10 +423,12 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         }
         method new(\seed, \lambda) { nqp::create(self)!SET-SELF(seed,lambda) }
         method pull-one() {
-            loop {
-                return nqp::push($!values,$!lambda($!list));
-            }
-            IterationEnd
+            my $result;
+            nqp::handle(
+              ($result := nqp::push($!values,$!lambda($!list))),
+              'LAST', ($result := IterationEnd)
+            );
+            $result
         }
         method is-lazy(--> True) { }
     }
@@ -446,28 +449,33 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         }
         method new(\seed, \lambda) { nqp::create(self)!SET-SELF(seed,lambda) }
         method pull-one() {
-            loop {
-                my \result := nqp::push($!values,$!lambda(|$!list));
-                nqp::shift($!values);
-                return result;
-            }
-            IterationEnd
+            my $result;
+            nqp::handle(
+              nqp::stmts(
+                ($result := nqp::push($!values,$!lambda(|$!list))),
+                nqp::shift($!values)
+              ),
+              'LAST', ($result := IterationEnd)
+            );
+            $result
         }
         method is-lazy(--> True) { }
     }
 
     # Unending iterator calling a lambda without any values
-    my class UnendingLambda does Iterator {
+    my class UnendingLambda does SlippyIterator {
         has &!callable;
         method new(&callable) {
             nqp::p6bindattrinvres(
               nqp::create(self),self,'&!callable',&callable)
         }
         method pull-one() is raw {
-            loop {
-                return &!callable();
-            }
-            IterationEnd
+            my $result;
+            nqp::handle(
+              ($result := &!callable()),
+              'LAST', ($result := IterationEnd)
+            );
+            $result
         }
         method is-lazy(--> True) { }
     }
@@ -599,7 +607,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
                 # just for the side-effects
                 else {
-                    nqp::push($iters,UnendingLambda(pulled));
+                    nqp::push($iters,UnendingLambda.new(pulled));
                 }
 
                 # done searching for a lambda

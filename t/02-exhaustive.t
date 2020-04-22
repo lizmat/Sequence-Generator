@@ -193,6 +193,9 @@ my @tests = (
   'constant sequence started with letter and identity closure',
     ('c',{$_}), *, 'c' xx 10,
 
+  'constant sequence started with letter and no arg closure',
+    ('c', -> {42}), *, ('c',|(42 xx 9)),
+
   'constant sequence started with two numbers',
     (1,1), *, 1 xx 10,
 
