@@ -160,11 +160,80 @@ my @tests = (
   'unending sequence of Dates going up',
     $today, *, $today .. $today + 9,
 
+  'simple decreasing additive sequence with two items on the LHS',
+    (1,0), *, (1,0,-1,-2,-3,-4,-5,-6,-7,-8),
+
+  'simple decreasing additive sequence with three items on the LHS',
+    (8,7,6), *, (8,7,6,5,4,3,2,1,0,-1),
+
+  'simple multiplicative sequence with three items on the LHS',
+    (1,3,9), *, (1,3,9,27,81,243,729,2187,6561,19683),
+
+  'decreasing multiplicative sequence with three items on the LHS',
+    (81,27,9), *, (81,27,9,3.0,1.0,1/3,1/9,1/27,1/81,1/243),
+
+  'simple sequence with one item and block closure on the LHS',
+    (1,{$_+2}), *, (1,3,5,7,9,11,13,15,17,19),
+
+  'simple sequence with one item and * closure on the LHS',
+    (1,*+2), *, (1,3,5,7,9,11,13,15,17,19),
+
+  'simple sequence with one item and closure on the LHS',
+    (1,{$_-2}), *, (1,-1,-3,-5,-7,-9,-11,-13,-15,-17),
+
+  'simple sequence with three items and block closure on the LHS',
+    (1,3,5,{$_+2}), *, (1,3,5,7,9,11,13,15,17,19),
+
+  'tricky sequence with one item and closure on the LHS',
+    (1,{1/((1/$_)+1)}), *, (1,0.5,1/3,0.25,0.2,1/6,1/7,0.125,1/9,0.1),
+
+  'simple alternating sequence with one item and closure on the LHS',
+    (1,{-$_}), *, (1,-1,1,-1,1,-1,1,-1,1,-1),
+
+  'constant sequence started with letter and identity closure',
+    ('c',{$_}), *, 'c' xx 10,
+
+  'constant sequence started with two numbers',
+    (1,1), *, 1 xx 10,
+
+  'constant sequence started with three numbers',
+    (1,1,1), *, 1 xx 10,
+
+  'alternating False and True',
+    (False,&prefix:<!>), *, |(False,True) xx 5,
+
+  'alternating False and True',
+    (False,{!$_}), *, |(False,True) xx 5,
+
+  '1, +* works for sequence',
+    (1,+*), *, 1 xx 10,
+
+  'use &[+] on infix:<...> series',
+    (1,1,&[+]), *, (1,1,2,3,5,8,13,21,34,55),
+
+  'WhateverCode with arity > 3 gets enough arguments',
+    (1,1,2,4,8,*+*+*+*), *, (1,1,2,4,8,15,29,56,108,208),
+
+  'sequence started with two different letters',
+    <a b>, *, 'a' .. 'j',
+
+  'character sequence started from array',
+    @abc, *, 'a' .. 'j',
+
+  'characters and arity-1',
+    ('a','b',{.succ}), *, 'a' .. 'j',
+
   'unending sequence of Dates going down',
     $today + 9, -Inf, ($today .. $today + 9).reverse,
 
   'simple additive sequence with two items on the LHS',
     (1,3), *, (1,3,5,7,9,11,13,15,17,19),
+
+  'sequence that lasts in the last item of lhs',
+    (1,2,{last if $_>=5;$_+1}), *, 1..5,
+
+  'sequence may be terminated by calling last from the generator function',
+    (5,4,3,{$_-1||last}), *, (5,4,3,2,1),
 
 #  'multiple endpoints 0 3 0',
 #    [0,3], 0, [(0,1,2,3,2,1,0),(0,1,2,2,1),(1,2,3,1,0),(1,2,1)],
@@ -283,69 +352,6 @@ my @tests = (
 #  'tricky sequence with one item and closure on the LHS',
 #    (1,{1/((1/$_)+1)}), 11/60, (1,0.5,1/3,0.25,0.2,1/6,1/7,0.125,1/9,0.1),
 
-  'simple decreasing additive sequence with two items on the LHS',
-    (1,0), *, (1,0,-1,-2,-3,-4,-5,-6,-7,-8),
-
-  'simple decreasing additive sequence with three items on the LHS',
-    (8,7,6), *, (8,7,6,5,4,3,2,1,0,-1),
-
-  'simple multiplicative sequence with three items on the LHS',
-    (1,3,9), *, (1,3,9,27,81,243,729,2187,6561,19683),
-
-  'decreasing multiplicative sequence with three items on the LHS',
-    (81,27,9), *, (81,27,9,3.0,1.0,1/3,1/9,1/27,1/81,1/243),
-
-  'simple sequence with one item and block closure on the LHS',
-    (1,{$_+2}), *, (1,3,5,7,9,11,13,15,17,19),
-
-  'simple sequence with one item and * closure on the LHS',
-    (1,*+2), *, (1,3,5,7,9,11,13,15,17,19),
-
-  'simple sequence with one item and closure on the LHS',
-    (1,{$_-2}), *, (1,-1,-3,-5,-7,-9,-11,-13,-15,-17),
-
-  'simple sequence with three items and block closure on the LHS',
-    (1,3,5,{$_+2}), *, (1,3,5,7,9,11,13,15,17,19),
-
-  'tricky sequence with one item and closure on the LHS',
-    (1,{1/((1/$_)+1)}), *, (1,0.5,1/3,0.25,0.2,1/6,1/7,0.125,1/9,0.1),
-
-  'simple alternating sequence with one item and closure on the LHS',
-    (1,{-$_}), *, (1,-1,1,-1,1,-1,1,-1,1,-1),
-
-  'constant sequence started with letter and identity closure',
-    ('c',{$_}), *, 'c' xx 10,
-
-  'constant sequence started with two numbers',
-    (1,1), *, 1 xx 10,
-
-  'constant sequence started with three numbers',
-    (1,1,1), *, 1 xx 10,
-
-  'alternating False and True',
-    (False,&prefix:<!>), *, |(False,True) xx 5,
-
-  'alternating False and True',
-    (False,{!$_}), *, |(False,True) xx 5,
-
-  '1, +* works for sequence',
-    (1,+*), *, 1 xx 10,
-
-  'use &[+] on infix:<...> series',
-    (1,1,&[+]), *, (1,1,2,3,5,8,13,21,34,55),
-
-  'WhateverCode with arity > 3 gets enough arguments',
-    (1,1,2,4,8,*+*+*+*), *, (1,1,2,4,8,15,29,56,108,208),
-
-  'sequence started with two different letters',
-    <a b>, *, 'a' .. 'j',
-
-  'character sequence started from array',
-    @abc, *, 'a' .. 'j',
-
-  'characters and arity-1',
-    ('a','b',{.succ}), *, 'a' .. 'j',
-
 #  'constant sequence started with two letters',
 #    ('c','c'), *, 'c' xx 10,
 
@@ -423,12 +429,6 @@ my @tests = (
 
 #  'sequence with code on the rhs',
 #    (1,2), *>5, 1..6,
-
-#  'sequence that lasts in the last item of lhs',
-#    (1,2,{last if $_>=5;$_+1}), *, [(1..5) xx 2, (2..5) xx 2],
-
-#  'sequence may be terminated by calling last from the generator function',
-#    (5,4,3,{$_-1||last}), *, [(5,4,3,2,1) xx 2, (4,3,2,1) xx 2],
 
 #  'range as LHS with fixed endpoint',
 #    (1..*), 5, 1..5,

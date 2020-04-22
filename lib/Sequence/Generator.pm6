@@ -397,7 +397,12 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             self
         }
         method new(\first, \lambda) { nqp::create(self)!SET-SELF(first,lambda) }
-        method pull-one() { $!value := $!lambda($!value) }
+        method pull-one() { 
+            loop {
+                return $!value := $!lambda($!value);
+            }
+            IterationEnd
+        }
         method is-lazy(--> True) { }
     }
 
@@ -416,7 +421,12 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             self
         }
         method new(\seed, \lambda) { nqp::create(self)!SET-SELF(seed,lambda) }
-        method pull-one() { nqp::push($!values,$!lambda($!list)) }
+        method pull-one() {
+            loop {
+                return nqp::push($!values,$!lambda($!list));
+            }
+            IterationEnd
+        }
         method is-lazy(--> True) { }
     }
 
@@ -436,9 +446,12 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         }
         method new(\seed, \lambda) { nqp::create(self)!SET-SELF(seed,lambda) }
         method pull-one() {
-            my \result := nqp::push($!values,$!lambda(|$!list));
-            nqp::shift($!values);
-            result
+            loop {
+                my \result := nqp::push($!values,$!lambda(|$!list));
+                nqp::shift($!values);
+                return result;
+            }
+            IterationEnd
         }
         method is-lazy(--> True) { }
     }
@@ -450,7 +463,12 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             nqp::p6bindattrinvres(
               nqp::create(self),self,'&!callable',&callable)
         }
-        method pull-one() is raw { &!callable() }
+        method pull-one() is raw {
+            loop {
+                return &!callable();
+            }
+            IterationEnd
+        }
         method is-lazy(--> True) { }
     }
 
