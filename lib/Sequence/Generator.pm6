@@ -47,7 +47,54 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         AllButLast.new(iterator)
     }
 
+    # Return an iterator from a source iterator that is supposed to
+    # generate iterators. As soon as an iterator is exhausted, the next
+    # iterator will be fetched and iterated over until exhausted.
+    my class SequentialIterators does Iterator {
+        has $!source;
+        has $!current;
+        has $!is-lazy;
+        method !SET-SELF(\source, \is-lazy) {
+            ($!current := ($!source := source).pull-one);
+            $!is-lazy  := is-lazy;
+            self
+        }
+        method new(\source, \is-lazy) {
+            nqp::create(self)!SET-SELF(source, is-lazy)
+        }
+        method pull-one() {
+            nqp::if(
+              nqp::eqaddr($!current,IterationEnd),
+              IterationEnd,
+              nqp::if(
+                nqp::eqaddr(
+                  (my \pulled := $!current.pull-one),
+                  IterationEnd
+                ),
+                nqp::stmts(
+                  ($!current := $!source.pull-one),
+                  self.pull-one
+                ),
+                pulled
+              )
+            )
+        }
+        method is-lazy() { $!is-lazy }
+    }
+
 #-- classes and helper subs for creating actual iterators ----------------------
+
+    my class UnendingValue does Iterator {
+        has Mu $!value;
+        method new(Mu \value) {
+            nqp::p6bindattrinvres(nqp::create(self),self,'$!value',value)
+        }
+        method pull-one() is raw { $!value }
+        method skip-one(--> True) { }
+        method sink-all(--> IterationEnd) { }
+        method is-lazy(--> True) { }
+    }
+
     # Unending iterator for constant numeric increment
     class UnendingStep does Iterator {
         has $!value;
@@ -59,6 +106,20 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         }
         method new(\start,\step) { nqp::create(self)!SET-SELF(start,step) }
         method pull-one() { $!value := $!value + $!step }
+        method is-lazy(--> True) { }
+    }
+
+    # Unending iterator for constant numeric multiplication
+    class UnendingMult does Iterator {
+        has $!value;
+        has $!mult;
+        method !SET-SELF(\first, \mult) {
+            $!value := first;
+            $!mult  := mult;
+            self
+        }
+        method new(\first,\mult) { nqp::create(self)!SET-SELF(first,mult) }
+        method pull-one() { $!value := $!value * $!mult }
         method is-lazy(--> True) { }
     }
 
@@ -311,9 +372,8 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             nqp::p6bindattrinvres(nqp::create(self),self,'$!value',first)
         }
         method pull-one() {
-            nqp::if(
+            nqp::unless(
               nqp::eqaddr((my \this := $!value),IterationEnd),
-              IterationEnd,
               nqp::if(
                 nqp::istype(($!value := this.pred),Failure),
                 nqp::stmts(
@@ -324,6 +384,73 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             );
             this
         }
+        method is-lazy(--> True) { }
+    }
+
+    # Unending iterator calling a lambda with 1 parameter
+    class UnendingLambda1 does Iterator {
+        has $!value;
+        has $!lambda;
+        method !SET-SELF(\first, \lambda) {
+            $!value  := first;
+            $!lambda := lambda;
+            self
+        }
+        method new(\first, \lambda) { nqp::create(self)!SET-SELF(first,lambda) }
+        method pull-one() { $!value := $!lambda($!value) }
+        method is-lazy(--> True) { }
+    }
+
+    # Unending iterator calling a lambda with all values so far
+    class UnendingLambdaAll does Iterator {
+        has $!values;
+        has $!list;
+        has $!lambda;
+        method !SET-SELF(\seed, \lambda) {
+            $!values := seed;
+            # wrap the iteration buffer into a List, so we can pass that
+            # as argument to the lambda, so we don't need to HLLize it
+            # for every call
+            $!list   := $!values.List;
+            $!lambda := lambda;
+            self
+        }
+        method new(\seed, \lambda) { nqp::create(self)!SET-SELF(seed,lambda) }
+        method pull-one() { nqp::push($!values,$!lambda($!list)) }
+        method is-lazy(--> True) { }
+    }
+
+    # Unending iterator calling a lambda with last N values
+    class UnendingLambdaN does Iterator {
+        has $!values;
+        has $!list;
+        has $!lambda;
+        method !SET-SELF(\seed, \lambda) {
+            $!values := seed;
+            # wrap the iteration buffer into a List, so we can pass that
+            # as argument to the lambda, so we don't need to HLLize it
+            # for every call
+            $!list   := $!values.List;
+            $!lambda := lambda;
+            self
+        }
+        method new(\seed, \lambda) { nqp::create(self)!SET-SELF(seed,lambda) }
+        method pull-one() {
+            my \result := nqp::push($!values,$!lambda(|$!list));
+            nqp::shift($!values);
+            result
+        }
+        method is-lazy(--> True) { }
+    }
+
+    # Unending iterator calling a lambda without any values
+    my class UnendingLambda does Iterator {
+        has &!callable;
+        method new(&callable) {
+            nqp::p6bindattrinvres(
+              nqp::create(self),self,'&!callable',&callable)
+        }
+        method pull-one() is raw { &!callable() }
         method is-lazy(--> True) { }
     }
 
@@ -396,10 +523,194 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               !! UnendingPred.new($no-first ?? $first.pred !! $first)
             !! die
     }
+
+    # Return iterator for given initial values without endpoint
+    multi method iterator(
+      @source, Whatever, Int:D $no-first, Int:D $no-last
+    --> Iterator:D) {
+        my $initials := nqp::create(IterationBuffer);
+        my $iters    := nqp::create(IterationBuffer);
+        my $source   := @source.iterator;
+
+        # for all seed values
+        my int $found-lambda;
+        until $found-lambda
+          || nqp::eqaddr((my \pulled := $source.pull-one),IterationEnd) {
+
+            # found a lambda
+            if nqp::istype(pulled,Callable) {
+                nqp::push($iters,$initials.iterator) if nqp::elems($initials);
+
+                # some arguments needed
+                if pulled.arity || pulled.count -> $arg-count {
+
+                    # most common case, taking one parameter
+                    if $arg-count == 1 {
+                        nqp::push(
+                          $iters,
+                          UnendingLambda1.new(
+                            nqp::elems($initials)
+                              ?? nqp::atpos($initials,-1)
+                              !! Any,
+                            pulled
+                          )
+                        );
+                    }
+
+                    # slurpy, always provide all
+                    elsif $arg-count == Inf {
+                        nqp::push($iters,
+                          UnendingLambdaAll.new($initials, pulled));
+                    }
+
+                    # 2 or more args needed
+                    else {
+                        my $seed := nqp::clone($initials);
+                        if nqp::elems($seed) > $arg-count {
+                            nqp::shift($seed)
+                              until nqp::elems($seed) == $arg-count;
+                        }
+                        elsif nqp::elems($seed) < $arg-count {
+                            nqp::unshift($seed,Any)
+                              until nqp::elems($seed) == $arg-count;
+                        }
+                        nqp::push($iters,
+                          UnendingLambdaN.new($seed, pulled));
+                    }
+                }
+
+                # just for the side-effects
+                else {
+                    nqp::push($iters,UnendingLambda(pulled));
+                }
+
+                # done searching for a lambda
+                $found-lambda = 1;
+            }
+
+            # just a value, carry on!
+            else {
+                nqp::push($initials,pulled)
+            }
+        }
+
+        # no lambda yet, use initial values
+        unless $found-lambda {
+            nqp::push($iters,$_) for self.elucidate($initials);
+        }
+
+        my \iterator := nqp::elems($iters) == 1
+          ?? nqp::shift($iters)
+          !! SequentialIterators.new($iters.iterator, True);
+
+        iterator.skip-one if $no-first;
+        $no-last
+          ?? AllButLast.new(iterator)
+          !! iterator
+    }
+
+#-- the elucidation dispatch ---------------------------------------------------
+
+    # take seed / code / and turn it into iterator(s) without endpoint
+    proto method elucidate(|) {*}
+    multi method elucidate(IterationBuffer:D \seed) {
+        if nqp::elems(seed) -> int $elems {
+            if $elems == 1 {
+                my \value := nqp::shift(seed);
+
+                nqp::istype(value,Numeric)
+                  ?? UnendingStep.new(value - 1, 1)
+                  !! UnendingSucc.new(value)
+            }
+
+            elsif $elems == 2 {
+                my \one := nqp::shift(seed);
+                my \two := nqp::shift(seed);
+                my $step;
+
+                nqp::eqaddr(one.WHAT,two.WHAT)
+                  ?? nqp::istype(one,Numeric)
+                    ?? ($step := two - one)
+                      ?? UnendingStep.new(one - $step, $step)
+                      !! UnendingValue.new(one)
+                    !! one.succ === two
+                      ?? UnendingSucc.new(one)
+                      !! two.succ === one
+                        ?? UnendingPred.new(one)
+                        !! (Rakudo::Iterator.OneValue(one),
+                            UnendingSucc.new(two))
+                  !! not-deducable(one,two)
+            }
+
+            else {  # 3 or more elems
+                my \one   := nqp::atpos(seed,$elems - 3);
+                my \two   := nqp::atpos(seed,$elems - 2);
+                my \three := nqp::atpos(seed,$elems - 1);
+                my $step;
+
+                # all the same type
+                if nqp::eqaddr(one.WHAT,two.WHAT)
+                  && nqp::eqaddr(two.WHAT,three.WHAT) {
+
+                    # it knows how to do numbers
+                    if nqp::istype(one.WHAT,Numeric) {
+                        $step := two - one;
+                        if three - two == $step {
+                            $elems == 3
+                              ?? UnendingStep.new(one - $step, $step)
+                              !! (seed.iterator,
+                                  UnendingStep.new(three, $step))
+                        }
+                        elsif one == 0 or two == 0 or three == 0 {
+                            not-deducable(one,two,three)
+                        }
+                        else {
+                            my $mult := (two / one).narrow;
+                            three / two == $mult
+                              ?? (seed.iterator,UnendingMult.new(three, $mult))
+                              !! not-deducable(one,two,three)
+                        }
+                    }
+
+                    # string always .succ or other classes that don't add up
+                    elsif nqp::istype(one,Str)
+                      || try { $step := two - one } === Nil {
+                        (seed.iterator, UnendingSucc.new(three.succ))
+                    }
+
+                    # classes that can add up
+                    else {
+                        three - two === $step
+                          ?? $elems == 3
+                            ?? UnendingStep.new(one - $step, $step)
+                            !! (seed.iterator,UnendingStep.new(three, $step))
+                          !! not-deducable(one,two,three);
+                    }
+                }
+                else {
+                    not-deducable(one,two,three);
+                }
+            }
+        }
+
+        # no seed to work with
+        else {
+            ().iterator
+        }
+    }
+
+#-- helper subs ----------------------------------------------------------------
+
+    # make quitting easy
+    sub not-deducable(*@values) is hidden-from-backtrace {
+        X::Sequence::Deduction.new(from => @values>>.raku.join(",")).throw
+    }
+    sub endpoint-mismatch(\from,\endpoint) is hidden-from-backtrace {
+        X::Sequence::Endpoint.new(from => from, endpoint => endpoint).throw
+    }
 }
 
-#-------------------------------------------------------------------------------
-# set up the operator front-end
+#-- operator front-end ---------------------------------------------------------
 
 my sub infix:<...>(Mu \a, Mu \b) is export is equiv(&infix:<...>){
     Seq.new: Sequence::Generator.iterator(a, b, 0, 0)

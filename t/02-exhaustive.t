@@ -10,7 +10,7 @@ use Sequence::Generator;
 
 # some arrays needed for tests
 #my @fib = 0, 1, *+* ... *;
-#my @abc = lazy <a b c>;
+my @abc = lazy <a b c>;
 my $today = Date.today;
 
 # some classes that are used
@@ -93,8 +93,8 @@ sub test-seq($description, Mu \seed, Mu \endpoint, \list) {
     }
 
     # optionally run same test for Inf as endpoint
-    test-seq($description, seed, Inf, [$result,$resultV,$Vresult,$VresultV])
-      if endpoint ~~ Whatever;
+#    test-seq($description, seed, Inf, [$result,$resultV,$Vresult,$VresultV])
+#      if endpoint ~~ Whatever;
 }
 
 # Set up tests, in order: description, LHS, RHS, result (either an Array,
@@ -162,6 +162,9 @@ my @tests = (
 
   'unending sequence of Dates going down',
     $today + 9, -Inf, ($today .. $today + 9).reverse,
+
+  'simple additive sequence with two items on the LHS',
+    (1,3), *, (1,3,5,7,9,11,13,15,17,19),
 
 #  'multiple endpoints 0 3 0',
 #    [0,3], 0, [(0,1,2,3,2,1,0),(0,1,2,2,1),(1,2,3,1,0),(1,2,1)],
@@ -280,38 +283,74 @@ my @tests = (
 #  'tricky sequence with one item and closure on the LHS',
 #    (1,{1/((1/$_)+1)}), 11/60, (1,0.5,1/3,0.25,0.2,1/6,1/7,0.125,1/9,0.1),
 
-#  'simple additive sequence with two items on the LHS',
-#    (1,3), *, (1,3,5,7,9,11,13,15,17,19),
+  'simple decreasing additive sequence with two items on the LHS',
+    (1,0), *, (1,0,-1,-2,-3,-4,-5,-6,-7,-8),
 
-#  'simple decreasing additive sequence with two items on the LHS',
-#    (1,0), *, (1,0,-1,-2,-3,-4,-5,-6,-7,-8),
+  'simple decreasing additive sequence with three items on the LHS',
+    (8,7,6), *, (8,7,6,5,4,3,2,1,0,-1),
 
-#  'simple decreasing additive sequence with three items on the LHS',
-#    (8,7,6), *, (8,7,6,5,4,3,2,1,0,-1),
+  'simple multiplicative sequence with three items on the LHS',
+    (1,3,9), *, (1,3,9,27,81,243,729,2187,6561,19683),
 
-#  'simple multiplicative sequence with three items on the LHS',
-#    (1,3,9), *, (1,3,9,27,81,243,729,2187,6561,19683),
+  'decreasing multiplicative sequence with three items on the LHS',
+    (81,27,9), *, (81,27,9,3.0,1.0,1/3,1/9,1/27,1/81,1/243),
 
-#  'decreasing multiplicative sequence with three items on the LHS',
-#    (81,27,9), *, (81,27.0,9.0,3.0,1.0,1/3,1/9,1/27,1/81,1/243),
+  'simple sequence with one item and block closure on the LHS',
+    (1,{$_+2}), *, (1,3,5,7,9,11,13,15,17,19),
 
-#  'simple sequence with one item and block closure on the LHS',
-#    (1,{$_+2}), *, (1,3,5,7,9,11,13,15,17,19),
+  'simple sequence with one item and * closure on the LHS',
+    (1,*+2), *, (1,3,5,7,9,11,13,15,17,19),
 
-#  'simple sequence with one item and * closure on the LHS',
-#    (1,*+2), *, (1,3,5,7,9,11,13,15,17,19),
+  'simple sequence with one item and closure on the LHS',
+    (1,{$_-2}), *, (1,-1,-3,-5,-7,-9,-11,-13,-15,-17),
 
-#  'simple sequence with one item and closure on the LHS',
-#    (1,{$_-2}), *, (1,-1,-3,-5,-7,-9,-11,-13,-15,-17),
+  'simple sequence with three items and block closure on the LHS',
+    (1,3,5,{$_+2}), *, (1,3,5,7,9,11,13,15,17,19),
 
-#  'simple sequence with three items and block closure on the LHS',
-#    (1,3,5,{$_+2}), *, (1,3,5,7,9,11,13,15,17,19),
+  'tricky sequence with one item and closure on the LHS',
+    (1,{1/((1/$_)+1)}), *, (1,0.5,1/3,0.25,0.2,1/6,1/7,0.125,1/9,0.1),
 
-#  'tricky sequence with one item and closure on the LHS',
-#    (1,{1/((1/$_)+1)}), *, (1,0.5,1/3,0.25,0.2,1/6,1/7,0.125,1/9,0.1),
+  'simple alternating sequence with one item and closure on the LHS',
+    (1,{-$_}), *, (1,-1,1,-1,1,-1,1,-1,1,-1),
 
-#  'simple alternating sequence with one item and closure on the LHS',
-#    (1,{-$_}), *, (1,-1,1,-1,1,-1,1,-1,1,-1),
+  'constant sequence started with letter and identity closure',
+    ('c',{$_}), *, 'c' xx 10,
+
+  'constant sequence started with two numbers',
+    (1,1), *, 1 xx 10,
+
+  'constant sequence started with three numbers',
+    (1,1,1), *, 1 xx 10,
+
+  'alternating False and True',
+    (False,&prefix:<!>), *, |(False,True) xx 5,
+
+  'alternating False and True',
+    (False,{!$_}), *, |(False,True) xx 5,
+
+  '1, +* works for sequence',
+    (1,+*), *, 1 xx 10,
+
+  'use &[+] on infix:<...> series',
+    (1,1,&[+]), *, (1,1,2,3,5,8,13,21,34,55),
+
+  'WhateverCode with arity > 3 gets enough arguments',
+    (1,1,2,4,8,*+*+*+*), *, (1,1,2,4,8,15,29,56,108,208),
+
+  'sequence started with two different letters',
+    <a b>, *, 'a' .. 'j',
+
+  'character sequence started from array',
+    @abc, *, 'a' .. 'j',
+
+  'characters and arity-1',
+    ('a','b',{.succ}), *, 'a' .. 'j',
+
+#  'constant sequence started with two letters',
+#    ('c','c'), *, 'c' xx 10,
+
+#  'constant sequence started with three letters',
+#    ('c','c','c'), *, 'c' xx 10,
 
 #  'simple sequence with two further terms on the RHS',
 #    1, (*,6,7), 1..10,
@@ -322,21 +361,6 @@ my @tests = (
 #  'simple sequence with two weird items on the RHS',
 #    1, (*,"foo","bar"), 1..10,
 
-#  'constant sequence started with letter and identity closure',
-#    ('c',{$_}), *, 'c' xx 10,
-
-#  'constant sequence started with two letters',
-#    ('c','c'), *, 'c' xx 10,
-
-#  'constant sequence started with three letters',
-#    ('c','c','c'), *, 'c' xx 10,
-
-#  'constant sequence started with two numbers',
-#    (1,1), *, 1 xx 10,
-
-#  'constant sequence started with three numbers',
-#    (1,1,1), *, 1 xx 10,
-
 #  'sequence started with three identical numbers, but then goes arithmetic',
 #    (1,1,1,2,3), 7, (1,1,1,2,3,4,5,6,7),
 
@@ -345,12 +369,6 @@ my @tests = (
 
 #  'geometric sequence started in one direction and continues in the other',
 #    (4,2,1,2,4), 16, (4,2,1,2,4,8,16),
-
-#  'alternating False and True',
-#    (False,&prefix:<!>), *, |(False,True) xx 5,
-
-#  'alternating False and True',
-#    (False,{!$_}), *, |(False,True) xx 5,
 
 #  'using &[+] works',
 #    (1,2,&[+]), 8, (1,2,3,5,8),
@@ -400,9 +418,6 @@ my @tests = (
 #  'sequence that aborts during LHS, before actual calculations kick in',
 #    (1,2,4,5,6), 3, [(1,2) xx 2, (2,) xx 2],
 
-#  '1, +* works for sequence',
-#    (1,+*), *, 1 xx 10,
-
 #  'sequence with code on the rhs',
 #    (1,2), *>=5, 1..5,
 
@@ -423,12 +438,6 @@ my @tests = (
 
 #  'stop on a matching type (2)',
 #    (32,{($_/2).narrow}), Rat, (32,16,8,4,2,1,0.5),
-
-#  'use &[+] on infix:<...> series',
-#    (1,1,&[+]), *, (1,1,2,3,5,8,13,21,34,55),
-
-#  'WhateverCode with arity > 3 gets enough arguments',
-#    (1,1,2,4,8,*+*+*+*), *, (1,1,2,4,8,15,29,56,108,208),
 
 #  'arity-2 convergence limit',
 #    (8,*/2), (*-*).abs < 2, (8,4.0,2.0,1.0),
@@ -463,12 +472,6 @@ my @tests = (
 #  'sequence with RHS junction II',
 #    (11,9), 2|3, (11,9,7,5,3),
 
-#  'sequence started with two different letters',
-#    <a b>, *, 'a' .. 'j',
-
-#  'character sequence started from array',
-#    @abc, *, 'a' .. 'j',
-
 #  'using a lazy array as a LHS',
 #    @fib, 8, (0,1,1,2,3,5,8),
 
@@ -477,9 +480,6 @@ my @tests = (
 
 #  'descending sequence started with three different letters',
 #    <i h g>, 'a', <i h g f e d c b a>,
-
-#  'characters and arity-1',
-#    ('a','b',{.succ}), *, 'a' .. 'j',
 
 #  'mixture',
 #    '.', '0', ('.','/','0'),
