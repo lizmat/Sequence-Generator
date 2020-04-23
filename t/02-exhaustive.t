@@ -62,39 +62,20 @@ sub test-seq($description, Mu \seed, Mu \endpoint, \list) {
 
     # run the tests
     subtest $description => {
-
-        # multiple start / endpoints
-        if seed ~~ Array && !seed.is-lazy {
-            seed.push(endpoint);
-
-            plan 1;
-            is-deeply infix:<...>(|seed).head(10).List, $result,
-              " ...  {$result.raku}";
-#            is-deeply infix:<...^>(|seed).head(10).List, $resultV,
-#              " ...^  {$resultV.raku}";
-#            is-deeply infix:<^...>(|seed).head(10).List, $Vresult,
-#              " ^...  {$Vresult.raku}";
-#            is-deeply infix:<^...^>(|seed).head(10).List, $VresultV,
-#              " ^...^  {$VresultV.raku}";
-        }
-
-        # only a single start / endpoint
-        else {
-            plan 4;
-            is-deeply infix:<...>(  seed, endpoint).head(10).List, $result,
-              " ...  {$result.raku}";
-            is-deeply infix:<...^>( seed, endpoint).head(10).List, $resultV,
-              " ...^ {$resultV.raku}";
-            is-deeply infix:<^...>( seed, endpoint).head(9).List, $Vresult,
-              "^...  {$Vresult.raku}";
-            is-deeply infix:<^...^>(seed, endpoint).head(9).List, $VresultV,
-              "^...^ {$VresultV.raku}";
-        }
+        plan 4;
+        is-deeply infix:<...>(  seed, endpoint).head(10).List, $result,
+          " ...  {$result.raku}";
+        is-deeply infix:<...^>( seed, endpoint).head(10).List, $resultV,
+          " ...^ {$resultV.raku}";
+        is-deeply infix:<^...>( seed, endpoint).head(9).List, $Vresult,
+          "^...  {$Vresult.raku}";
+        is-deeply infix:<^...^>(seed, endpoint).head(9).List, $VresultV,
+          "^...^ {$VresultV.raku}";
     }
 
     # optionally run same test for Inf as endpoint
-#    test-seq($description, seed, Inf, [$result,$resultV,$Vresult,$VresultV])
-#      if endpoint ~~ Whatever;
+    test-seq($description, seed, Inf, [$result,$resultV,$Vresult,$VresultV])
+      if endpoint ~~ Whatever;
 }
 
 # Set up tests, in order: description, LHS, RHS, result (either an Array,

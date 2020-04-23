@@ -115,6 +115,47 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         }
     }
 
+#-- wrappers for iterators for final conditions --------------------------------
+
+    my role EndpointLimiter does Iterator {
+        has $!iterator;
+        has $!endpoint;
+        method SET-SELF(\iterator, \endpoint) {
+            $!iterator := iterator;
+            $!endpoint := endpoint;
+            self
+        }
+        method new(\iter, \end) { nqp::create(self)!SET-SELF(iter, end) }
+        method is-lazy(-->Bool:D) { $!iterator.is-lazy }
+    }
+
+    my class EndOnGreaterThan does EndpointLimiter {
+        method pull-one() {
+            nqp::eqaddr((my \pulled := $!iterator.pull-one),IterationEnd)
+              || pulled > $!endpoint
+              ?? IterationEnd
+              !! pulled
+        }
+    }
+
+    my class EndOnSmallerThan does EndpointLimiter {
+        method pull-one() {
+            nqp::eqaddr((my \pulled := $!iterator.pull-one),IterationEnd)
+              || pulled < $!endpoint
+              ?? IterationEnd
+              !! pulled
+        }
+    }
+
+    my class EndOnSmartMatch does EndpointLimiter {
+        method pull-one() {
+            nqp::eqaddr((my \pulled := $!iterator.pull-one),IterationEnd)
+              || $!endpoint.ACCEPTS(pulled)
+              ?? IterationEnd
+              !! pulled
+        }
+    }
+
 #-- classes and helper subs for creating actual iterators ----------------------
 
     my class UnendingValue does Iterator {
@@ -725,6 +766,18 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         $no-last
           ?? AllButLast.new(iterator)
           !! iterator
+    }
+
+    # Return iterator for given initial values without endpoint
+    multi method iterator(
+      @source, Numeric:D \endpoint, Int:D $no-first, Int:D $no-last
+    --> Iterator:D) {
+        if endpoint == Inf {
+            self.iterator(@source, Whatever, $no-first, $no-last)
+        }
+        else {
+            die
+        }
     }
 
 #-- the elucidation dispatch ---------------------------------------------------
