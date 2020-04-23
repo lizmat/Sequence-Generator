@@ -238,6 +238,27 @@ my @tests = (
   'sequence may be terminated by calling last from the generator function',
     (5,4,3,{$_-1||last}), *, (5,4,3,2,1),
 
+  'sequence of two interleaved sequences',
+    (1,1,{slip $_, $_*2}), *,  (1,1,1,2,2,4,4,8,8,16),
+
+  'sequence of two interleaved sequences',
+    (1,1,{slip $^a+1, $^b*2}), *,  (1,1,2,2,3,4,4,8,5,16),
+
+  'sequence of three interleaved sequences',
+    (1,1,1,{slip $^a+1, $^b*2, $^c-1}), *, (1,1,1,2,2,0,3,4,-1,4),
+
+  'sequence with list-returning block',
+    (1,{|($^n+1 xx $^n+1)}), *, (1,2,2,3,3,3,4,4,4,4),
+
+  'sequence with arity < number of return values',
+    ('a','b',{slip $^a~'x', $^a~$^b, $^b~'y'}), *, <a b ax ab by abx abby byy abbyx abbybyy>,
+
+  'sequence with arity > number of return values',
+    ('a','b','c',{slip $^x~'x', $^y~'y'~$^z~'z'}), *, <a b c ax bycz cx axybyczz byczx cxyaxybyczzz axybyczzx>,
+
+#  '0-ary generator output can be slipped from the start',
+#     -> {slip 'zero','one'}, *, <zero one zero one zero one zero one zero one>,
+
 #  'multiple endpoints 0 3 0',
 #    [0,3], 0, [(0,1,2,3,2,1,0),(0,1,2,2,1),(1,2,3,1,0),(1,2,1)],
 
@@ -450,24 +471,6 @@ my @tests = (
 
 #  'sequence stops when type of endpoint matches',
 #    {quietly $_ > 3 ?? 'liftoff' !! $_ + 1}, Str, (1,2,3,4,'liftoff'),
-
-#  'sequence of two interleaved sequences',
-#    (1,1,{slip $^a+1, $^b*2}), *,  (1,1,2,2,3,4,4,8,5,16),
-
-#  'sequence of three interleaved sequences',
-#    (1,1,1,{slip $^a+1, $^b*2, $^c-1}), *, (1,1,1,2,2,0,3,4,-1,4),
-
-#  'sequence with list-returning block',
-#    (1,{|($^n+1 xx $^n+1)}), *, (1,2,2,3,3,3,4,4,4,4),
-
-#  'sequence with arity < number of return values',
-#    ('a','b',{slip $^a~'x', $^a~$^b, $^b~'y'}), *, <a b ax ab by abx abby byy abbyx abbybyy>,
-
-#  'sequence with arity > number of return values',
-#    ('a','b','c',{slip $^x~'x', $^y~'y'~$^z~'z'}), *, <a b c ax bycz cx axybyczz byczx cxyaxybyczzz axybyczzx>,
-
-#  '0-ary generator output can be slipped from the start',
-#     -> {slip 'zero','one'}, *, <zero one zero one zero one zero one zero one>,
 
 #  'sequence with RHS junction I',
 #    (10,8), 2|3, (10,8,6,4,2),

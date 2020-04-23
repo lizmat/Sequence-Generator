@@ -82,6 +82,39 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method is-lazy() { $!is-lazy }
     }
 
+    # Role for iterators that need to handle Slips
+    my role Slipper does Iterator {
+        has $!slipping;  # the slip we're iterating now
+
+        proto method start-slip(|) {*}
+        multi method start-slip(Slip:U \slip) {
+            slip
+        }
+        multi method start-slip(Slip:D \slip) {
+            nqp::if(
+              nqp::eqaddr(slip,Empty),
+              IterationEnd,                  # we know there's nothing
+              nqp::if(
+                nqp::eqaddr(
+                  (my \result := ($!slipping := slip.iterator).pull-one),
+                  IterationEnd
+                ),
+                nqp::stmts(                  # we've determined there's nothing
+                  ($!slipping := nqp::null),
+                  IterationEnd
+                ),
+                result                       # started a Slip
+              )
+            )
+        }
+
+        method slip-one() {
+            $!slipping := nqp::null
+              if nqp::eqaddr((my \result := $!slipping.pull-one),IterationEnd);
+            result
+        }
+    }
+
 #-- classes and helper subs for creating actual iterators ----------------------
 
     my class UnendingValue does Iterator {
@@ -388,94 +421,153 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     }
 
     # Unending iterator calling a lambda with 1 parameter
-    class UnendingLambda1 does Iterator {
+    class UnendingLambda1 does Slipper {
         has $!value;
         has $!lambda;
         method !SET-SELF(\first, \lambda) {
-            $!value  := first;
-            $!lambda := lambda;
+            $!value    := first;
+            $!lambda   := lambda;
+            nqp::bindattr(self,self.WHAT,'$!slipping',nqp::null);
             self
         }
         method new(\first, \lambda) { nqp::create(self)!SET-SELF(first,lambda) }
         method pull-one() { 
-            nqp::handle(
-              ($!value := $!lambda($!value)),
-              'LAST', ($!value := IterationEnd)
-            );
-            $!value
+            nqp::if(
+              nqp::isnull($!slipping),
+              nqp::stmts(                       # not slipping
+                nqp::handle(
+                  ($!value := $!lambda($!value)),
+                  'LAST', ($!value := IterationEnd)
+                ),
+                nqp::if(
+                  nqp::istype($!value,Slip),
+                  ($!value := self.start-slip($!value)),
+                  $!value
+                )
+              ),
+              nqp::if(                          # slipping
+                nqp::eqaddr((my \slipped := self.slip-one),IterationEnd),
+                self.pull-one, # done slipping, recurse to handle potential Slip
+                ($!value := slipped)
+              )
+            )
         }
         method is-lazy(--> True) { }
     }
 
     # Unending iterator calling a lambda with all values so far
-    class UnendingLambdaAll does Iterator {
+    class UnendingLambdaAll does Slipper {
         has $!values;
         has $!list;
         has $!lambda;
         method !SET-SELF(\seed, \lambda) {
             $!values := seed;
             # wrap the iteration buffer into a List, so we can pass that
-            # as argument to the lambda, so we don't need to HLLize it
+            # as argument to the lambda, so we do not need to HLLize it
             # for every call
             $!list   := $!values.List;
             $!lambda := lambda;
+            nqp::bindattr(self,self.WHAT,'$!slipping',nqp::null);
             self
         }
         method new(\seed, \lambda) { nqp::create(self)!SET-SELF(seed,lambda) }
         method pull-one() {
             my $result;
-            nqp::handle(
-              ($result := nqp::push($!values,$!lambda($!list))),
-              'LAST', ($result := IterationEnd)
+            nqp::if(
+              nqp::isnull($!slipping),
+              nqp::stmts(                    # not slipping
+                nqp::handle(
+                  ($result := $!lambda($!list)),
+                  'LAST', ($result := IterationEnd)
+                ),
+                nqp::if(
+                  nqp::istype($result,Slip),
+                  ($result := self.start-slip($result)),
+                )
+              ),
+              nqp::if(                       # slipping
+                nqp::eqaddr(($result := self.slip-one),IterationEnd),
+                (return self.pull-one) # recurse to handle potential Slip
+              )
             );
-            $result
+
+            nqp::push($!values,$result)
         }
         method is-lazy(--> True) { }
     }
 
     # Unending iterator calling a lambda with last N values
-    class UnendingLambdaN does Iterator {
+    class UnendingLambdaN does Slipper {
         has $!values;
         has $!list;
         has $!lambda;
         method !SET-SELF(\seed, \lambda) {
             $!values := seed;
             # wrap the iteration buffer into a List, so we can pass that
-            # as argument to the lambda, so we don't need to HLLize it
+            # as argument to the lambda, so we do not need to HLLize it
             # for every call
             $!list   := $!values.List;
             $!lambda := lambda;
+            nqp::bindattr(self,self.WHAT,'$!slipping',nqp::null);
             self
         }
         method new(\seed, \lambda) { nqp::create(self)!SET-SELF(seed,lambda) }
         method pull-one() {
             my $result;
-            nqp::handle(
-              nqp::stmts(
-                ($result := nqp::push($!values,$!lambda(|$!list))),
-                nqp::shift($!values)
+            nqp::if(
+              nqp::isnull($!slipping),
+              nqp::stmts(                    # not slipping
+                nqp::handle(
+                  ($result := $!lambda(|$!list)),
+                  'LAST', ($result := IterationEnd)
+                ),
+                nqp::if(
+                  nqp::istype($result,Slip),
+                  ($result := self.start-slip($result))
+                )
               ),
-              'LAST', ($result := IterationEnd)
+              nqp::if(                       # slipping
+                nqp::eqaddr(($result := self.slip-one),IterationEnd),
+                (return self.pull-one)  # recurse to handle potential Slip
+              )
             );
-            $result
+
+            nqp::shift($!values);
+            nqp::push($!values,$result)
         }
         method is-lazy(--> True) { }
     }
 
     # Unending iterator calling a lambda without any values
-    my class UnendingLambda does SlippyIterator {
+    my class UnendingLambda does Slipper {
         has &!callable;
-        method new(&callable) {
-            nqp::p6bindattrinvres(
-              nqp::create(self),self,'&!callable',&callable)
+        method !SET-SELF(\lambda) {
+            &!callable := lambda;
+            nqp::bindattr(self,self.WHAT,'$!slipping',nqp::null);
+            self
         }
+        method new(&callable) { nqp::create(self)!SET-SELF(&callable) }
         method pull-one() is raw {
             my $result;
-            nqp::handle(
-              ($result := &!callable()),
-              'LAST', ($result := IterationEnd)
-            );
-            $result
+            nqp::if(
+              nqp::isnull($!slipping),
+              nqp::stmts(                     # not slipping
+                nqp::handle(
+                  ($result := &!callable()),
+                  'LAST', ($result := IterationEnd)
+                ),
+                nqp::if(
+                  nqp::istype($result,Slip),
+                  self.start-slip($result),
+                  $result
+                )
+              ),
+              nqp::if(                        # slipping
+                nqp::eqaddr(($result := self.slip-one),IterationEnd),
+                self.pull-one, # done slipping, recurse to handle potential Slip
+                $result
+              )
+            )
         }
         method is-lazy(--> True) { }
     }
