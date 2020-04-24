@@ -109,8 +109,8 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         }
 
         method slip-one() {
-            $!slipping := nqp::null
-              if nqp::eqaddr((my \result := $!slipping.pull-one),IterationEnd);
+            my \result := $!slipping.pull-one;
+            $!slipping := nqp::null if nqp::eqaddr(result,IterationEnd);
             result
         }
     }
@@ -198,20 +198,6 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         }
         method new(\start,\step) { nqp::create(self)!SET-SELF(start,step) }
         method pull-one() { $!value := $!value + $!step }
-        method is-lazy(--> True) { }
-    }
-
-    # Unending iterator for constant numeric multiplication
-    class UnendingMult does Iterator {
-        has $!value;
-        has $!mult;
-        method !SET-SELF(\first, \mult) {
-            $!value := first;
-            $!mult  := mult;
-            self
-        }
-        method new(\first,\mult) { nqp::create(self)!SET-SELF(first,mult) }
-        method pull-one() { $!value := $!value * $!mult }
         method is-lazy(--> True) { }
     }
 
@@ -517,7 +503,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               ),
               nqp::if(                          # slipping
                 nqp::eqaddr(($result := self.slip-one),IterationEnd),
-                ($result := self.pull-one) # recurse to handle potential Slip
+                (return self.pull-one) # recurse to handle potential Slip
               )
             );
 
@@ -569,7 +555,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               ),
               nqp::if(                          # slipping
                 nqp::eqaddr(($result := self.slip-one),IterationEnd),
-                ($result := self.pull-one) # recurse to handle potential Slip
+                (return self.pull-one) # recurse to handle potential Slip
               )
             );
 
@@ -622,7 +608,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               ),
               nqp::if(                          # slipping
                 nqp::eqaddr(($result := self.slip-one),IterationEnd),
-                ($result := self.pull-one) # recurse to handle potential Slip
+                (return self.pull-one) # recurse to handle potential Slip
               )
             );
 
@@ -630,8 +616,8 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               $!ender($result),
               IterationEnd,
               nqp::stmts(
-                ($!value2 := $!value1),
-                ($!value1 := $result)
+                ($!value1 := $!value2),
+                ($!value2 := $result)
               )
             )
         }
@@ -693,7 +679,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               ),
               nqp::if(                       # slipping
                 nqp::eqaddr(($result := self.slip-one),IterationEnd),
-                ($result := self.pull-one)  # recurse to handle potential Slip
+                (return self.pull-one)  # recurse to handle potential Slip
               )
             );
 
@@ -751,7 +737,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               ),
               nqp::if(                       # slipping
                 nqp::eqaddr(($result := self.slip-one),IterationEnd),
-                ($result := self.pull-one)  # recurse to handle potential Slip
+                (return self.pull-one)  # recurse to handle potential Slip
               )
             );
 
@@ -1014,12 +1000,13 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                       LambdaN.new($initials, pulled, Whatever, $arg-count)
                     )
                   )
-                )
+                ),
+                LambdaNone.new($initials, pulled, Whatever)
               )),
               nqp::push($initials,pulled)
             ),
             die "Cannot have value after Callable: found {pulled}"
-          );
+          )
         );
 
         # no iterator yet, use initial values
@@ -1027,7 +1014,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
         $iterator.skip-one if $no-first;
         $no-last
-          ?? AllButLast.new($iterator)
+          ?? self.AllButLast($iterator)
           !! $iterator
     }
 
@@ -1059,21 +1046,19 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             }
 
             elsif $elems == 2 {
-                my \one := nqp::shift(seed);
-                my \two := nqp::shift(seed);
-                my $step;
+                my \one := nqp::atpos(seed,0);
+                my \two := nqp::atpos(seed,1);
 
                 nqp::eqaddr(one.WHAT,two.WHAT)
                   ?? nqp::istype(one,Numeric)
-                    ?? ($step := two - one)
+                    ?? (my $step := two - one)
                       ?? UnendingStep.new(one - $step, $step)
                       !! UnendingValue.new(one)
                     !! one.succ === two
                       ?? UnendingSucc.new(one)
                       !! two.succ === one
                         ?? UnendingPred.new(one)
-                        !! (Rakudo::Iterator.OneValue(one),
-                            UnendingSucc.new(two))
+                        !! Lambda1.new(seed, *.succ, Whatever)
                   !! not-deducable(one,two)
             }
 
@@ -1093,8 +1078,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                         if three - two == $step {
                             $elems == 3
                               ?? UnendingStep.new(one - $step, $step)
-                              !! (seed.iterator,
-                                  UnendingStep.new(three, $step))
+                              !! Lambda1.new(seed, * + $step, Whatever)
                         }
                         elsif one == 0 or two == 0 or three == 0 {
                             not-deducable(one,two,three)
@@ -1102,7 +1086,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                         else {
                             my $mult := (two / one).narrow;
                             three / two == $mult
-                              ?? (seed.iterator,UnendingMult.new(three, $mult))
+                              ?? Lambda1.new(seed, { $_ * $mult }, Whatever)
                               !! not-deducable(one,two,three)
                         }
                     }
@@ -1110,7 +1094,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                     # string always .succ or other classes that don't add up
                     elsif nqp::istype(one,Str)
                       || try { $step := two - one } === Nil {
-                        (seed.iterator, UnendingSucc.new(three.succ))
+                        Lambda1.new(seed, *.succ, Whatever)
                     }
 
                     # classes that can add up
@@ -1118,7 +1102,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                         three - two === $step
                           ?? $elems == 3
                             ?? UnendingStep.new(one - $step, $step)
-                            !! (seed.iterator,UnendingStep.new(three, $step))
+                            !! Lambda1.new(seed, * + $step, Whatever)
                           !! not-deducable(one,two,three);
                     }
                 }
@@ -1137,7 +1121,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 #-- helper subs ----------------------------------------------------------------
 
     # ender version for unending sequences
-    sub no-end($ --> 1) { }
+    sub no-end($ --> 0) { }
 
     # make quitting easy
     sub not-deducable(*@values) is hidden-from-backtrace {
