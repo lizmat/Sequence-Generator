@@ -47,6 +47,15 @@ Using .pred ends sequence if Failure
 
 The original implementation of the `...` operator would die if `.pred` was being used to generate the next value, and that would return a Failure. This has been changed to ending the sequence.
 
+No longer silently ignores values on LHS after Callable
+-------------------------------------------------------
+
+The original implementation of the `...` would ignore any values **after** a Callable on the LHS, e.g.:
+
+    1,2,3, * + 1, 7,8,9 ... 100;
+
+This now dies.
+
 AUTHOR
 ======
 

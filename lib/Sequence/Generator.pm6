@@ -645,16 +645,26 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has $!values;    # IterationBuffer with values to be passed to producer
         has $!list;      # HLL wrapper around $!values
         has $!is-lazy;   # Bool to indicate laziness of iterator
-        has int $!elems; # maximum number of elems to be passed to producer
 
         method new(\seed, \producer, \ender, int $elems) {
             my $new := nqp::create(self);
-            nqp::bindattr($new,self,'$!slipping',seed.iterator);
             nqp::bindattr($new,self,'$!producer',producer);
-            nqp::bindattr($new,self,'$!list',nqp::bindattr(
-              $new,self,'$!values',nqp::create(IterationBuffer)
-            ).List);
-            $!elems = $elems;
+            nqp::bindattr($new,self,'$!slipping',seed.iterator);
+            nqp::bindattr($new,self,'$!list',
+              (my \values := nqp::bindattr(
+                $new,self,'$!values',nqp::clone(seed)
+              )).List
+            );
+
+            # make sure $!values is set to the correct size
+            nqp::while(
+              nqp::isgt_i(nqp::elems(values),$elems),
+              nqp::shift(values)
+            );
+            nqp::while(
+              nqp::islt_i(nqp::elems(values),$elems),
+              nqp::unshift(values,Any)
+            );
 
             if nqp::eqaddr(ender,Whatever) {
                 nqp::bindattr($new,self,'$!is-lazy',True);
@@ -691,10 +701,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               $!ender($result),
               IterationEnd,
               nqp::stmts(
-                nqp::if(
-                  nqp::iseq_i(nqp::elems($!values),$!elems),
-                  nqp::shift($!values)
-                ),
+                nqp::shift($!values),
                 nqp::push($!values,$result)
               )
             )
@@ -983,84 +990,45 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
       @source, Whatever, Int:D $no-first, Int:D $no-last
     --> Iterator:D) {
         my $initials := nqp::create(IterationBuffer);
-        my $iters    := nqp::create(IterationBuffer);
+        my $iterator := nqp::null;
         my $source   := @source.iterator;
 
-        # for all seed values
-        my int $found-lambda;
-        until $found-lambda
-          || nqp::eqaddr((my \pulled := $source.pull-one),IterationEnd) {
+        # find the right iterator
+        nqp::until(
+          nqp::eqaddr((my \pulled := $source.pull-one),IterationEnd),
+          nqp::if(
+            nqp::isnull($iterator),
+            nqp::if(
+              nqp::istype(pulled,Callable),
+              ($iterator := nqp::if(
+                (my $arg-count := pulled.arity || pulled.count),
+                nqp::if(
+                  $arg-count == 1,
+                  Lambda1.new($initials, pulled, Whatever),
+                  nqp::if(
+                    $arg-count == 2,
+                    Lambda2.new($initials, pulled, Whatever),
+                    nqp::if(
+                      $arg-count == Inf,
+                      LambdaAll.new($initials, pulled, Whatever),
+                      LambdaN.new($initials, pulled, Whatever, $arg-count)
+                    )
+                  )
+                )
+              )),
+              nqp::push($initials,pulled)
+            ),
+            die "Cannot have value after Callable: found {pulled}"
+          );
+        );
 
-            # found a lambda
-            if nqp::istype(pulled,Callable) {
-                nqp::push($iters,$initials.iterator) if nqp::elems($initials);
+        # no iterator yet, use initial values
+        $iterator := self.elucidate($initials) if nqp::isnull($iterator);
 
-                # some arguments needed
-                if pulled.arity || pulled.count -> $arg-count {
-
-                    # most common case, taking one parameter
-                    if $arg-count == 1 {
-                        nqp::push(
-                          $iters,
-                          UnendingLambda1.new(
-                            nqp::elems($initials)
-                              ?? nqp::atpos($initials,-1)
-                              !! Any,
-                            pulled
-                          )
-                        );
-                    }
-
-                    # slurpy, always provide all
-                    elsif $arg-count == Inf {
-                        nqp::push($iters,
-                          UnendingLambdaAll.new($initials, pulled));
-                    }
-
-                    # 2 or more args needed
-                    else {
-                        my $seed := nqp::clone($initials);
-                        if nqp::elems($seed) > $arg-count {
-                            nqp::shift($seed)
-                              until nqp::elems($seed) == $arg-count;
-                        }
-                        elsif nqp::elems($seed) < $arg-count {
-                            nqp::unshift($seed,Any)
-                              until nqp::elems($seed) == $arg-count;
-                        }
-                        nqp::push($iters,
-                          UnendingLambdaN.new($seed, pulled));
-                    }
-                }
-
-                # just for the side-effects
-                else {
-                    nqp::push($iters,UnendingLambda.new(pulled));
-                }
-
-                # done searching for a lambda
-                $found-lambda = 1;
-            }
-
-            # just a value, carry on!
-            else {
-                nqp::push($initials,pulled)
-            }
-        }
-
-        # no lambda yet, use initial values
-        unless $found-lambda {
-            nqp::push($iters,$_) for self.elucidate($initials);
-        }
-
-        my \iterator := nqp::elems($iters) == 1
-          ?? nqp::shift($iters)
-          !! SequentialIterators.new($iters.iterator, True);
-
-        iterator.skip-one if $no-first;
+        $iterator.skip-one if $no-first;
         $no-last
-          ?? AllButLast.new(iterator)
-          !! iterator
+          ?? AllButLast.new($iterator)
+          !! $iterator
     }
 
     # Return iterator for given initial values without endpoint
@@ -1257,6 +1225,15 @@ of whether it actually compared exactly with the endpoint or not.
 The original implementation of the C<...> operator would die if C<.pred> was
 being used to generate the next value, and that would return a Failure.  This
 has been changed to ending the sequence.
+
+=head2 No longer silently ignores values on LHS after Callable
+
+The original implementation of the C<...> would ignore any values B<after>
+a Callable on the LHS, e.g.:
+
+   1,2,3, * + 1, 7,8,9 ... 100;
+
+This now dies.
 
 =head1 AUTHOR
 
