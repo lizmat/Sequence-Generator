@@ -479,6 +479,57 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method is-lazy(--> True) { }
     }
 
+    # Iterator calling a lambda without any parameters with endpoint lambda
+    class LambdaNone does Slipper {
+        has $!producer; # lambda to produce value
+        has $!ender;    # lambda returning true if sequence should end
+        has $!is-lazy;  # Bool to indicate laziness of iterator
+
+        method new(\seed, \producer, \ender) {
+            my $new := nqp::create(self);
+            nqp::bindattr($new,self,'$!slipping',seed.iterator);
+            nqp::bindattr($new,self,'$!producer',producer);
+
+            if nqp::eqaddr(ender,Whatever) {
+                nqp::bindattr($new,self,'$!is-lazy',True);
+                nqp::bindattr($new,self,'$!ender',&no-end);
+            }
+            else {
+                nqp::bindattr($new,self,'$!is-lazy',False);
+                nqp::bindattr($new,self,'$!ender',ender);
+            }
+
+            $new
+        }
+        method pull-one() { 
+            my $result;
+            nqp::if(
+              nqp::isnull($!slipping),
+              nqp::stmts(                       # not slipping
+                nqp::handle(
+                  ($result := $!producer()),
+                  'LAST', (return IterationEnd)
+                ),
+                nqp::if(
+                  nqp::istype($result,Slip),
+                  ($result := self.start-slip($result))
+                )
+              ),
+              nqp::if(                          # slipping
+                nqp::eqaddr(($result := self.slip-one),IterationEnd),
+                ($result := self.pull-one) # recurse to handle potential Slip
+              )
+            );
+
+            nqp::if(
+              $!ender($result),
+              IterationEnd,
+              $result
+            )
+        }
+        method is-lazy() is raw { $!is-lazy }
+    }
+
     # Iterator calling a lambda with 1 parameter with endpoint lambda
     class Lambda1 does Slipper {
         has $!value;    # value to be passed to lambda to produce next value
@@ -512,7 +563,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                   'LAST', (return IterationEnd)
                 ),
                 nqp::if(
-                  nqp::istype($!value,Slip),
+                  nqp::istype($result,Slip),
                   ($result := self.start-slip($result))
                 )
               ),
@@ -526,6 +577,62 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               $!ender($result),
               IterationEnd,
               ($!value := $result)
+            )
+        }
+        method is-lazy() is raw { $!is-lazy }
+    }
+
+    # Iterator calling a lambda with 2 parameters with endpoint lambda
+    class Lambda2 does Slipper {
+        has $!value1;   # first value to be passed to produce next value
+        has $!value2;   # second value to be passed to produce next value
+        has $!producer; # lambda to produce value
+        has $!ender;    # lambda returning true if sequence should end
+        has $!is-lazy;  # Bool to indicate laziness of iterator
+
+        method new(\seed, \producer, \ender) {
+            my $new := nqp::create(self);
+            nqp::bindattr($new,self,'$!slipping',seed.iterator);
+            nqp::bindattr($new,self,'$!producer',producer);
+
+            if nqp::eqaddr(ender,Whatever) {
+                nqp::bindattr($new,self,'$!is-lazy',True);
+                nqp::bindattr($new,self,'$!ender',&no-end);
+            }
+            else {
+                nqp::bindattr($new,self,'$!is-lazy',False);
+                nqp::bindattr($new,self,'$!ender',ender);
+            }
+
+            $new
+        }
+        method pull-one() { 
+            my $result;
+            nqp::if(
+              nqp::isnull($!slipping),
+              nqp::stmts(                       # not slipping
+                nqp::handle(
+                  ($result := $!producer($!value1,$!value2)),
+                  'LAST', (return IterationEnd)
+                ),
+                nqp::if(
+                  nqp::istype($result,Slip),
+                  ($result := self.start-slip($result))
+                )
+              ),
+              nqp::if(                          # slipping
+                nqp::eqaddr(($result := self.slip-one),IterationEnd),
+                ($result := self.pull-one) # recurse to handle potential Slip
+              )
+            );
+
+            nqp::if(
+              $!ender($result),
+              IterationEnd,
+              nqp::stmts(
+                ($!value2 := $!value1),
+                ($!value1 := $result)
+              )
             )
         }
         method is-lazy() is raw { $!is-lazy }
@@ -590,6 +697,61 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                 ),
                 nqp::push($!values,$result)
               )
+            )
+        }
+    }
+
+    # Iterator calling a lambda with *all* alues with endpoint lambda
+    class LambdaAll does Slipper {
+        has $!producer;  # lambda to produce value
+        has $!ender;     # lambda returning true if sequence should end
+        has $!values;    # IterationBuffer with values to be passed to producer
+        has $!list;      # HLL wrapper around $!values
+        has $!is-lazy;   # Bool to indicate laziness of iterator
+
+        method new(\seed, \producer, \ender) {
+            my $new := nqp::create(self);
+            nqp::bindattr($new,self,'$!slipping',seed.iterator);
+            nqp::bindattr($new,self,'$!producer',producer);
+            nqp::bindattr($new,self,'$!list',nqp::bindattr(
+              $new,self,'$!values',nqp::create(IterationBuffer)
+            ).List);
+
+            if nqp::eqaddr(ender,Whatever) {
+                nqp::bindattr($new,self,'$!is-lazy',True);
+                nqp::bindattr($new,self,'$!ender',&no-end);
+            }
+            else {
+                nqp::bindattr($new,self,'$!is-lazy',False);
+                nqp::bindattr($new,self,'$!ender',ender);
+            }
+
+            $new
+        }
+        method pull-one() {
+            my $result;
+            nqp::if(
+              nqp::isnull($!slipping),
+              nqp::stmts(                    # not slipping
+                nqp::handle(
+                  ($result := $!producer(|$!list)),
+                  'LAST', (return IterationEnd)
+                ),
+                nqp::if(
+                  nqp::istype($result,Slip),
+                  ($result := self.start-slip($result))
+                )
+              ),
+              nqp::if(                       # slipping
+                nqp::eqaddr(($result := self.slip-one),IterationEnd),
+                ($result := self.pull-one)  # recurse to handle potential Slip
+              )
+            );
+
+            nqp::if(
+              $!ender($result),
+              IterationEnd,
+              nqp::push($!values,$result)
             )
         }
     }
