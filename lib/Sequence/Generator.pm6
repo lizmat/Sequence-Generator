@@ -47,6 +47,29 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         AllButLast.new(iterator)
     }
 
+    # Return an iterator that takes a buffer and an iterator, which will
+    # first produce the buffer, and then start producing values from the
+    # iterator.
+    my class BufferIterator does Iterator {
+        has $!buffer;
+        has $!iterator;
+
+        method new(\buffer, \iterator) {
+            my $new := nqp::create(self);
+            nqp::bindattr($new,self,'$buffer',buffer);
+            nqp::bindattr($new,self,'$iterator',iterator);
+            $new
+        }
+        method pull-one() {
+            nqp::if(
+              nqp::elems($!buffer),
+              nqp::shift($!buffer),
+              $!iterator.pull-one
+            )
+        }
+        method is-lazy() { $!iterator.is-lazy }
+    }
+
     # Role for iterators that need to handle Slips
     my role Slipper does Iterator {
         has $!slipping;  # the slip we're iterating now
@@ -854,9 +877,8 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                     # classes that can add up
                     else {
                         three - two === $step
-                          ?? $elems == 3
-                            ?? UnendingStep.new(one - $step, $step)
-                            !! Lambda1.new(seed, * + $step, Whatever)
+                          ?? BufferIterator.new(
+                               seed,UnendingStep.new(three,$step))
                           !! not-deducable(one,two,three);
                     }
                 }
