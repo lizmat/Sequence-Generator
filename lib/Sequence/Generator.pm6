@@ -56,8 +56,8 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
         method new(\buffer, \iterator) {
             my $new := nqp::create(self);
-            nqp::bindattr($new,self,'$buffer',buffer);
-            nqp::bindattr($new,self,'$iterator',iterator);
+            nqp::bindattr($new,self,'$!buffer',buffer);
+            nqp::bindattr($new,self,'$!iterator',iterator);
             $new
         }
         method pull-one() {
@@ -127,6 +127,20 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         }
         method new(\start,\step) { nqp::create(self)!SET-SELF(start,step) }
         method pull-one() { $!value := $!value + $!step }
+        method is-lazy(--> True) { }
+    }
+
+    # Unending iterator for constant numeric multiplication
+    class UnendingMult does Iterator {
+        has $!value;
+        has $!mult;
+        method !SET-SELF(\first, \mult) {
+            $!value := first;
+            $!mult  := mult;
+            self
+        }
+        method new(\first,\mult) { nqp::create(self)!SET-SELF(first,mult) }
+        method pull-one() { $!value := $!value * $!mult }
         method is-lazy(--> True) { }
     }
 
@@ -835,7 +849,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                       ?? UnendingSucc.new(one)
                       !! two.succ === one
                         ?? UnendingPred.new(one)
-                        !! Lambda1.new(seed, *.succ, Whatever)
+                        !! BufferIterator(seed, UnendingSucc.new(two.succ))
                   !! not-deducable(one,two)
             }
 
@@ -853,9 +867,8 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                     if nqp::istype(one.WHAT,Numeric) {
                         $step := two - one;
                         if three - two == $step {
-                            $elems == 3
-                              ?? UnendingStep.new(one - $step, $step)
-                              !! Lambda1.new(seed, * + $step, Whatever)
+                            BufferIterator.new(
+                              seed, UnendingStep.new(three, $step))
                         }
                         elsif one == 0 or two == 0 or three == 0 {
                             not-deducable(one,two,three)
@@ -863,7 +876,8 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                         else {
                             my $mult := (two / one).narrow;
                             three / two == $mult
-                              ?? Lambda1.new(seed, { $_ * $mult }, Whatever)
+                              ?? BufferIterator.new(
+                                   seed, UnendingMult.new(three, $mult))
                               !! not-deducable(one,two,three)
                         }
                     }
@@ -871,14 +885,14 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                     # string always .succ or other classes that don't add up
                     elsif nqp::istype(one,Str)
                       || try { $step := two - one } === Nil {
-                        Lambda1.new(seed, *.succ, Whatever)
+                        BufferIterator.new(seed, UnendingSucc.new(three.succ))
                     }
 
                     # classes that can add up
                     else {
                         three - two === $step
                           ?? BufferIterator.new(
-                               seed,UnendingStep.new(three,$step))
+                               seed, UnendingStep.new(three,$step))
                           !! not-deducable(one,two,three);
                     }
                 }
