@@ -900,9 +900,11 @@ my sub infix:<^...>(Mu \a, Mu \b) is export is equiv(&infix:<...>){
 my sub infix:<^...^>(Mu \a, Mu \b) is export is equiv(&infix:<...>){
     Seq.new: Sequence::Generator.iterator(a, b, 1, 1)
 }
-my sub infix:<…>(Mu \a, Mu \b) is export is equiv(&infix:<…>){
-    Seq.new: Sequence::Generator.iterator(a, b, 0, 0)
-}
+
+my constant &infix:<…> is export := &infix:<<...>>;
+my constant &infix:<…^> is export := &infix:<<...^>>;
+my constant &infix:<^…> is export := &infix:<<^...>>;
+my constant &infix:<^…^> is export := &infix:<<^...^>>;
 
 =begin pod
 

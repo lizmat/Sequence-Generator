@@ -62,7 +62,7 @@ sub test-seq($description, Mu \seed, Mu \endpoint, \list) {
 
     # run the tests
     subtest $description => {
-        plan 5;
+        plan 8;
         is-deeply infix:<...>(  seed, endpoint).head(10).List, $result,
           " ...  {$result.raku}";
         is-deeply infix:<...^>( seed, endpoint).head(10).List, $resultV,
@@ -71,8 +71,14 @@ sub test-seq($description, Mu \seed, Mu \endpoint, \list) {
           "^...  {$Vresult.raku}";
         is-deeply infix:<^...^>(seed, endpoint).head(9).List, $VresultV,
           "^...^ {$VresultV.raku}";
-        is-deeply infix:<…>(seed, endpoint).head(9).List, $VresultV,
-          "… {$VresultV.raku}";
+        is-deeply infix:<…>(seed, endpoint).head(10).List, $result,
+          "… {$result.raku}";
+        is-deeply infix:<…^>(seed, endpoint).head(10).List, $resultV,
+          "…^ {$resultV.raku}";
+        is-deeply infix:<^…>( seed, endpoint).head(9).List, $Vresult,
+          "^…  {$Vresult.raku}";
+        is-deeply infix:<^…^>(seed, endpoint).head(9).List, $VresultV,
+          "^…^ {$VresultV.raku}";
     }
 
     # optionally run same test for Inf as endpoint
