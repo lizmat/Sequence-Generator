@@ -408,6 +408,8 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method is-lazy(--> True) { }
     }
 
+#-- iterators taking one or more lambda's --------------------------------------
+
     # Iterator calling a lambda without any parameters
     class LambdaNone does Slipper {
         has $!producer; # lambda to produce value
@@ -444,7 +446,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     }
 
     # Iterator calling a lambda without any parameters with endpoint lambda
-    class LambdaNoneEndpoint does Slipper {
+    class LambdaNoneEnder does Slipper {
         has $!producer; # lambda to produce value
         has $!ender;    # lambda returning true if sequence should end
 
@@ -520,7 +522,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     }
 
     # Iterator calling a lambda with 1 parameter with endpoint lambda
-    class Lambda1Endpoint does Slipper {
+    class Lambda1Ender does Slipper {
         has $!value;    # value to be passed to lambda to produce next value
         has $!producer; # lambda to produce value
         has $!ender;    # lambda returning true if sequence should end
@@ -599,7 +601,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     }
 
     # Iterator calling a lambda with 2 parameters with endpoint lambda
-    class Lambda2Endpoint does Slipper {
+    class Lambda2Ender does Slipper {
         has $!value1;   # first value to be passed to produce next value
         has $!value2;   # second value to be passed to produce next value
         has $!producer; # lambda to produce value
@@ -700,7 +702,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     }
 
     # Iterator calling a lambda with last N values with endpoint lambda
-    class LambdaNEndpoint does Slipper {
+    class LambdaNEnder does Slipper {
         has $!producer;  # lambda to produce value
         has $!ender;     # lambda returning true if sequence should end
         has $!values;    # IterationBuffer with values to be passed to producer
@@ -793,7 +795,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     }
 
     # Iterator calling a lambda with *all* values with endpoint lambda
-    class LambdaAllEndpoint does Slipper {
+    class LambdaAllEnder does Slipper {
         has $!producer;  # lambda to produce value
         has $!ender;     # lambda returning true if sequence should end
         has $!values;    # IterationBuffer with values to be passed to producer
