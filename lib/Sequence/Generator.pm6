@@ -126,7 +126,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             self
         }
         method new(\start,\step) { nqp::create(self)!SET-SELF(start,step) }
-        method pull-one() { $!value := $!value + $!step }
+        method pull-one() is raw { $!value := $!value + $!step }
         method is-lazy(--> True) { }
     }
 
@@ -140,7 +140,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             self
         }
         method new(\first,\mult) { nqp::create(self)!SET-SELF(first,mult) }
-        method pull-one() { $!value := $!value * $!mult }
+        method pull-one() is raw { $!value := $!value * $!mult }
         method is-lazy(--> True) { }
     }
 
@@ -158,7 +158,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method new(\start,\step,\downto) {
             nqp::create(self)!SET-SELF(start,step,downto)
         }
-        method pull-one() {
+        method pull-one() is raw {
             ($!value := $!value + $!step) < $!downto
               ?? IterationEnd
               !! $!value
@@ -181,7 +181,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method new(\start,\step,\upto) {
             nqp::create(self)!SET-SELF(start,step,upto)
         }
-        method pull-one() {
+        method pull-one() is raw {
             ($!value := $!value + $!step) > $!upto
               ?? IterationEnd
               !! $!value
@@ -221,7 +221,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               nqp::ord(first), nqp::ord(last), $no-first, $no-last
             )
         }
-        method pull-one() {
+        method pull-one() is raw {
             --$!todo
               ?? nqp::chr($!codepoint = nqp::add_i($!codepoint,$!step))
               !! IterationEnd
@@ -311,7 +311,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             nqp::create(self)!SET-SELF(first, last, $no-first, $no-last)
         }
 
-        method pull-one() {
+        method pull-one() is raw {
             nqp::if(
               nqp::islt_i(++$!i,nqp::elems($!lowest)),
               nqp::stmts(
@@ -370,7 +370,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method new(\first, \last, int $no-first, int $no-last) {
             nqp::create(self)!SET-SELF(first, last, $no-first, $no-last)
         }
-        method pull-one() { ... }
+        method pull-one() is raw { ... }
     }
 
     # Unending iterator calling .succ
@@ -379,7 +379,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method new(\first) {
             nqp::p6bindattrinvres(nqp::create(self),self,'$!value',first)
         }
-        method pull-one() {
+        method pull-one() is raw {
             $!value := (my \this := $!value).succ;
             this
         }
@@ -392,7 +392,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method new(\first) {
             nqp::p6bindattrinvres(nqp::create(self),self,'$!value',first)
         }
-        method pull-one() {
+        method pull-one() is raw {
             nqp::unless(
               nqp::eqaddr((my \this := $!value),IterationEnd),
               nqp::if(
@@ -430,7 +430,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
             $new
         }
-        method pull-one() { 
+        method pull-one() is raw { 
             my $result;
             nqp::if(
               nqp::isnull($!slipping),
@@ -482,7 +482,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
             $new
         }
-        method pull-one() { 
+        method pull-one() is raw { 
             my $result;
             nqp::if(
               nqp::isnull($!slipping),
@@ -535,7 +535,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
             $new
         }
-        method pull-one() { 
+        method pull-one() is raw { 
             my $result;
             nqp::if(
               nqp::isnull($!slipping),
@@ -606,7 +606,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
             $new
         }
-        method pull-one() {
+        method pull-one() is raw {
             my $result;
             nqp::if(
               nqp::isnull($!slipping),
@@ -664,7 +664,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
             $new
         }
-        method pull-one() {
+        method pull-one() is raw {
             my $result;
             nqp::if(
               nqp::isnull($!slipping),
