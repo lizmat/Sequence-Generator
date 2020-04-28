@@ -1287,8 +1287,8 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
     }
 
-    # Return iterator for given initial value with multiple endpoints
-    method !iterator-iterable(
+    # Return iterator for iterators with initial and endpoint values
+    method !iterator-iterator(
       \left, \right, int $no-first, int $no-last
     --> Iterator:D) {
         nqp::eqaddr((my \endpoint := right.pull-one),IterationEnd)
@@ -1306,7 +1306,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
       @source, Mu \endpoint, Int:D $no-first, Int:D $no-last
     --> Iterator:D) is default {
         nqp::istype(endpoint,Iterable)
-          ?? self!iterator-iterable(
+          ?? self!iterator-iterator(
                @source.iterator, endpoint.iterator, $no-first, $no-last
              )
           !! self!iterator-endpoint(
@@ -1316,7 +1316,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
 #-- the elucidation dispatch ---------------------------------------------------
 
-    # take seed / code / and turn it into iterator(s) without endpoint
+    # take seed / code / and turn it into iterator(s) with endpoint
     proto method elucidate(|) {*}
     multi method elucidate(IterationBuffer:D \seed) {
         if nqp::elems(seed) -> int $elems {
