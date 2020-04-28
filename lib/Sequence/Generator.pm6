@@ -60,14 +60,40 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             nqp::bindattr($new,self,'$!iterator',iterator);
             $new
         }
-        method pull-one() {
-            nqp::if(
-              nqp::elems($!buffer),
-              nqp::shift($!buffer),
-              $!iterator.pull-one
-            )
+        method pull-one() is raw {
+            nqp::elems($!buffer)
+              ?? nqp::shift($!buffer)
+              !! $!iterator.pull-one
         }
         method is-lazy() { $!iterator.is-lazy }
+    }
+
+    # Return an iterator that combines two iterators
+    my class TwoIterators does Iterator {
+        has $!active;
+        has $!spare;
+
+        method new(\one, \two) {
+            my $new := nqp::create(self);
+            nqp::bindattr($new,self,'$!active',one);
+            nqp::bindattr($new,self,'$!spare',two);
+            $new
+        }
+        method pull-one() is raw {
+            nqp::if(
+              nqp::eqaddr((my \pulled := $!active.pull-one),IterationEnd),
+              nqp::if(
+                nqp::isnull($!spare),
+                IterationEnd,
+                nqp::stmts(            # switching to spare
+                  ($!active := $!spare),
+                  ($!spare  := nqp::null),
+                  $!active.pull-one
+                )
+              ),
+              pulled
+            )
+        }
     }
 
     # Role for iterators that need to handle Slips
@@ -1204,13 +1230,12 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
           !! LambdaAllAccepts.new(initials, lambda, endpoint, $no-last)
     }
 
-    # Return iterator for given initial values without endpoint
-    multi method iterator(
-      @source, Mu \endpoint, Int:D $no-first, Int:D $no-last
-    --> Iterator:D) is default {
+    # Return iterator for given initial values with endpoint
+    method !iterator-endpoint(
+      $source, Mu \endpoint, int $no-first, int $no-last
+    --> Iterator:D) {
         my $initials := nqp::create(IterationBuffer);
         my $iterator := nqp::null;
-        my $source   := @source.iterator;
 
         # find the right iterator
         nqp::until(
@@ -1260,6 +1285,33 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             $iterator
         }
 
+    }
+
+    # Return iterator for given initial value with multiple endpoints
+    method !iterator-iterable(
+      \left, \right, int $no-first, int $no-last
+    --> Iterator:D) {
+        nqp::eqaddr((my \endpoint := right.pull-one),IterationEnd)
+          ?? endpoint-mismatch(left, "empty list")
+          !! nqp::istype(endpoint,Whatever) || endpoint === Inf
+            ?? die()  # can never produce later
+            !! TwoIterators.new(
+                 self!iterator-endpoint(left, endpoint, $no-first, $no-last),
+                 right
+               )
+    }
+
+    # Return iterator for given initial values with endpoint
+    multi method iterator(
+      @source, Mu \endpoint, Int:D $no-first, Int:D $no-last
+    --> Iterator:D) is default {
+        nqp::istype(endpoint,Iterable)
+          ?? self!iterator-iterable(
+               @source.iterator, endpoint.iterator, $no-first, $no-last
+             )
+          !! self!iterator-endpoint(
+               @source.iterator, endpoint, $no-first, $no-last
+             )
     }
 
 #-- the elucidation dispatch ---------------------------------------------------
@@ -1451,6 +1503,15 @@ The original implementation of the C<...> would ignore any values B<after>
 a Callable on the LHS, e.g.:
 
    1,2,3, * + 1, 7,8,9 ... 100;
+
+This now dies.
+
+=head2 No longer silently ignores values with RHS list starting with *
+
+The original implementation of the C<...> would ignore any values B<after>
+a Whatever as the first element of a list on the RHS, e.g.:
+
+   1,2,3 ... *,42,666
 
 This now dies.
 

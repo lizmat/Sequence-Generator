@@ -278,6 +278,9 @@ my @tests = (
   'using &[+] works',
     (1,2,&[+]), 8, (1,2,3,5,8),
 
+  'list on LHS with callable, list with lambda on rhs',
+    (1,* * 2), (32,42,666), [(1,2,4,8,16,32,42,666),(1,2,4,8,16,42,666),(2,4,8,16,32,42,666),(2,4,8,16,42,666)],
+
 #  '0-ary generator output can be slipped from the start',
 #     -> {slip 'zero','one'}, *, <zero one zero one zero one zero one zero one>,
 
