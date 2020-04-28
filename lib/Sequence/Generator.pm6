@@ -1273,23 +1273,16 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         );
 
         # no iterator yet, use initial values
-        if nqp::isnull($iterator) {
-            $iterator := self.elucidate($initials);
-            $iterator.skip-one if $no-first;
-            $no-last ?? all-but-last($iterator) !! $iterator
-        }
+        $iterator := self!elucidate($initials, endpoint, $no-last)
+          if nqp::isnull($iterator);
 
-        # already handled no-last
-        else {
-            $iterator.skip-one if $no-first;
-            $iterator
-        }
-
+        $iterator.skip-one if $no-first;
+        $iterator
     }
 
     # Return iterator for iterators with initial and endpoint values
     method !iterator-iterator(
-      \left, \right, int $no-first, int $no-last
+      Iterator:D \left, Iterator:D \right, int $no-first, int $no-last
     --> Iterator:D) {
         nqp::eqaddr((my \endpoint := right.pull-one),IterationEnd)
           ?? endpoint-mismatch(left, "empty list")
@@ -1314,90 +1307,109 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
              )
     }
 
-#-- the elucidation dispatch ---------------------------------------------------
-
-    # take seed / code / and turn it into iterator(s) with endpoint
-    proto method elucidate(|) {*}
-    multi method elucidate(IterationBuffer:D \seed) {
-        if nqp::elems(seed) -> int $elems {
-            if $elems == 1 {
-                my \value := nqp::shift(seed);
-
-                nqp::istype(value,Numeric)
-                  ?? UnendingStep.new(value - 1, 1)
-                  !! UnendingSucc.new(value)
-            }
-
-            elsif $elems == 2 {
-                my \one := nqp::atpos(seed,0);
-                my \two := nqp::atpos(seed,1);
-
-                nqp::eqaddr(one.WHAT,two.WHAT)
-                  ?? nqp::istype(one,Numeric)
-                    ?? (my $step := two - one)
-                      ?? UnendingStep.new(one - $step, $step)
-                      !! UnendingValue.new(one)
-                    !! one.succ === two
-                      ?? UnendingSucc.new(one)
-                      !! two.succ === one
-                        ?? UnendingPred.new(one)
-                        !! BufferIterator(seed, UnendingSucc.new(two.succ))
-                  !! not-deducable(one,two)
-            }
-
-            else {  # 3 or more elems
-                my \one   := nqp::atpos(seed,$elems - 3);
-                my \two   := nqp::atpos(seed,$elems - 2);
-                my \three := nqp::atpos(seed,$elems - 1);
-                my $step;
-
-                # all the same type
-                if nqp::eqaddr(one.WHAT,two.WHAT)
-                  && nqp::eqaddr(two.WHAT,three.WHAT) {
-
-                    # it knows how to do numbers
-                    if nqp::istype(one.WHAT,Numeric) {
-                        $step := two - one;
-                        if three - two == $step {
-                            BufferIterator.new(
-                              seed, UnendingStep.new(three, $step))
-                        }
-                        elsif one == 0 or two == 0 or three == 0 {
-                            not-deducable(one,two,three)
-                        }
-                        else {
-                            my $mult := (two / one).narrow;
-                            three / two == $mult
-                              ?? BufferIterator.new(
-                                   seed, UnendingMult.new(three, $mult))
-                              !! not-deducable(one,two,three)
-                        }
-                    }
-
-                    # string always .succ or other classes that don't add up
-                    elsif nqp::istype(one,Str)
-                      || try { $step := two - one } === Nil {
-                        BufferIterator.new(seed, UnendingSucc.new(three.succ))
-                    }
-
-                    # classes that can add up
-                    else {
-                        three - two === $step
-                          ?? BufferIterator.new(
-                               seed, UnendingStep.new(three,$step))
-                          !! not-deducable(one,two,three);
-                    }
-                }
-                else {
-                    not-deducable(one,two,three);
-                }
-            }
+    method !elucidate1(
+      \value, \endpoint, int $no-last
+    --> Iterator:D) {
+        if nqp::istype(endpoint,Whatever) || endpoint === Inf {
+            nqp::istype(value,Numeric)
+              ?? UnendingStep.new(value - 1, 1)
+              !! UnendingSucc.new(value)
         }
-
-        # no seed to work with
         else {
-            ().iterator
+            die;
         }
+    }
+
+    method !elucidate2(
+      IterationBuffer:D \seed, \endpoint, int $no-last
+    --> Iterator:D) {
+        if nqp::istype(endpoint,Whatever) || endpoint === Inf {
+            my \one := nqp::atpos(seed,0);
+            my \two := nqp::atpos(seed,1);
+
+            nqp::eqaddr(one.WHAT,two.WHAT)
+              ?? nqp::istype(one,Numeric)
+                ?? (my $step := two - one)
+                  ?? UnendingStep.new(one - $step, $step)
+                  !! UnendingValue.new(one)
+                !! one.succ === two
+                  ?? UnendingSucc.new(one)
+                  !! two.succ === one
+                    ?? UnendingPred.new(one)
+                    !! BufferIterator(seed, UnendingSucc.new(two.succ))
+              !! not-deducable(one,two)
+        }
+        else {
+            die
+        }
+    }
+
+    method !elucidateN(
+      IterationBuffer:D \seed, \endpoint, int $no-last
+    --> Iterator:D) {
+        my int $elems = nqp::elems(seed);
+
+        if nqp::istype(endpoint,Whatever) || endpoint === Inf {
+            my \one   := nqp::atpos(seed,$elems - 3);
+            my \two   := nqp::atpos(seed,$elems - 2);
+            my \three := nqp::atpos(seed,$elems - 1);
+            my $step;
+
+            # all the same type
+            if nqp::eqaddr(one.WHAT,two.WHAT)
+              && nqp::eqaddr(two.WHAT,three.WHAT) {
+
+                # it knows how to do numbers
+                if nqp::istype(one.WHAT,Numeric) {
+                    $step := two - one;
+                    if three - two == $step {
+                        BufferIterator.new(
+                          seed, UnendingStep.new(three, $step))
+                    }
+                    elsif one == 0 or two == 0 or three == 0 {
+                        not-deducable(one,two,three)
+                    }
+                    else {
+                        my $mult := (two / one).narrow;
+                        three / two == $mult
+                          ?? BufferIterator.new(
+                               seed, UnendingMult.new(three, $mult))
+                          !! not-deducable(one,two,three)
+                    }
+                }
+
+                # string always .succ or other classes that don't add up
+                elsif nqp::istype(one,Str)
+                  || try { $step := two - one } === Nil {
+                    BufferIterator.new(seed, UnendingSucc.new(three.succ))
+                }
+
+                # classes that can add up
+                else {
+                    three - two === $step
+                      ?? BufferIterator.new(
+                           seed, UnendingStep.new(three,$step))
+                      !! not-deducable(one,two,three);
+                }
+            }
+            else {
+                not-deducable(one,two,three);
+            }
+        }
+        else {
+            die
+        }
+    }
+
+    # take seed / endpoint / and turn it into an iterator
+    method !elucidate(IterationBuffer:D \seed, \endpoint, int $no-last) {
+        nqp::iseq_i((my int $elems = nqp::elems(seed)),1)
+          ?? self!elucidate1(nqp::shift(seed), endpoint, $no-last)
+          !! nqp::iseq_i($elems,2)
+            ?? self!elucidate2(seed, endpoint, $no-last)
+            !! $elems
+              ?? self!elucidateN(seed, endpoint, $no-last)
+              !! die
     }
 
 #-- helper subs ----------------------------------------------------------------
