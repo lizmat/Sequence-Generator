@@ -1390,11 +1390,11 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
     # take seed / endpoint / and turn it into an iterator
     method !elucidate(IterationBuffer:D \seed, \endpoint, int $no-last) {
-        nqp::iseq_i((my int $elems = nqp::elems(seed)),2)
+        nqp::iseq_i(nqp::elems(seed),2)
           ?? self!elucidate2(seed, endpoint, $no-last)
-          !! nqp::isgt_i($elems,2)
+          !! nqp::isgt_i(nqp::elems(seed),2)
             ?? self!elucidateN(seed, endpoint, $no-last)
-            !! $elems
+            !! nqp::elems(seed)
               ?? self.iterator(nqp::shift(seed), endpoint, 0, $no-last)
               !! die
     }
