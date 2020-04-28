@@ -39,11 +39,11 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method bool-only()  {  $!iterator.count-only > 1       }
     }
 
-    proto method AllButLast(|) {*}
-    multi method AllButLast(PredictiveIterator:D \iterator) {
+    proto sub all-but-last(|) {*}
+    multi sub all-but-last(PredictiveIterator:D \iterator) {
         AllButLastPredictive.new(iterator)
     }
-    multi method AllButLast(Iterator:D \iterator) {
+    multi sub all-but-last(Iterator:D \iterator) {
         AllButLast.new(iterator)
     }
 
@@ -303,9 +303,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
             # set up iterator wrt to endpoints
             self.skip-one if $no-first;
-            $no-last
-              ?? self.AllButLast(self)
-              !! self
+            $no-last ?? all-but-last(self) !! self
         }
         method new(\first, \last, int $no-first, int $no-last) {
             nqp::create(self)!SET-SELF(first, last, $no-first, $no-last)
@@ -363,9 +361,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
             # set up iterator wrt to endpoints
             self.skip-one if $no-first;
-            $no-last
-              ?? self.AllButLast(self)
-              !! self
+            $no-last ?? all-but-last(self) !! self
         }
         method new(\first, \last, int $no-first, int $no-last) {
             nqp::create(self)!SET-SELF(first, last, $no-first, $no-last)
@@ -414,11 +410,11 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     class LambdaNone does Slipper {
         has $!producer; # lambda to produce value
 
-        method new(\seed, \producer) {
+        method new(\seed, \producer, int $no-last) {
             my $new := nqp::create(self);
             nqp::bindattr($new,self,'$!slipping',seed.iterator);
             nqp::bindattr($new,self,'$!producer',producer);
-            $new
+            $no-last ?? all-but-last($new) !! $new
         }
         method pull-one() is raw { 
             my $result;
@@ -525,7 +521,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                 $!no-last,
                 IterationEnd,  # don't bother to produce last value
                 nqp::stmts(
-                  $!producer := nqp::null,
+                  ($!producer := nqp::null),
                   $result
                 )
               ),
@@ -539,11 +535,11 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has $!value;    # value to be passed to lambda to produce next value
         has $!producer; # lambda to produce value
 
-        method new(\seed, \producer) {
+        method new(\seed, \producer, int $no-last) {
             my $new := nqp::create(self);
             nqp::bindattr($new,self,'$!slipping',seed.iterator);
             nqp::bindattr($new,self,'$!producer',producer);
-            $new
+            $no-last ?? all-but-last($new) !! $new
         }
         method pull-one() is raw { 
             my $result;
@@ -654,7 +650,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                 $!no-last,
                 IterationEnd,  # don't bother to produce last value
                 nqp::stmts(
-                  $!producer := nqp::null,
+                  ($!producer := nqp::null),
                   $result
                 )
               ),
@@ -669,11 +665,11 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has $!value2;   # second value to be passed to produce next value
         has $!producer; # lambda to produce value
 
-        method new(\seed, \producer) {
+        method new(\seed, \producer, int $no-last) {
             my $new := nqp::create(self);
             nqp::bindattr($new,self,'$!slipping',seed.iterator);
             nqp::bindattr($new,self,'$!producer',producer);
-            $new
+            $no-last ?? all-but-last($new) !! $new
         }
         method pull-one() is raw { 
             my $result;
@@ -790,7 +786,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                 $!no-last,
                 IterationEnd,  # don't bother to produce last value
                 nqp::stmts(
-                  $!producer := nqp::null,
+                  ($!producer := nqp::null),
                   $result
                 )
               ),
@@ -821,7 +817,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has $!values;    # IterationBuffer with values to be passed to producer
         has $!list;      # HLL wrapper around $!values
 
-        method new(\seed, \producer, int $elems) {
+        method new(\seed, \producer, int $no-last, int $elems) {
             my $new := nqp::create(self);
             nqp::bindattr($new,self,'$!slipping',seed.iterator);
             nqp::bindattr($new,self,'$!producer',producer);
@@ -830,7 +826,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                 $new,self,'$!values',set-buffer-size(nqp::clone(seed),$elems)
               )).List
             );
-            $new
+            $no-last ?? all-but-last($new) !! $new
         }
         method pull-one() is raw {
             my $result;
@@ -957,7 +953,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                 $!no-last,
                 IterationEnd,  # don't bother to produce last value
                 nqp::stmts(
-                  $!producer := nqp::null,
+                  ($!producer := nqp::null),
                   $result
                 )
               ),
@@ -975,14 +971,14 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has $!values;    # IterationBuffer with values to be passed to producer
         has $!list;      # HLL wrapper around $!values
 
-        method new(\seed, \producer) {
+        method new(\seed, \producer, int $no-last) {
             my $new := nqp::create(self);
             nqp::bindattr($new,self,'$!slipping',seed.iterator);
             nqp::bindattr($new,self,'$!producer',producer);
             nqp::bindattr($new,self,'$!list',nqp::bindattr(
               $new,self,'$!values',nqp::create(IterationBuffer)
             ).List);
-            $new
+            $no-last ?? all-but-last($new) !! $new
         }
         method pull-one() is raw {
             my $result;
@@ -1104,7 +1100,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                 $!no-last,
                 IterationEnd,  # don't bother to produce last value
                 nqp::stmts(
-                  $!producer := nqp::null,
+                  ($!producer := nqp::null),
                   $result
                 )
               ),
@@ -1128,9 +1124,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             ?? UnendingStep.new(first - 1 + $no-first, +1)
             !! StepUpto.new(first - 1 + $no-first, +1, endpoint);
 
-        $no-last
-          ?? self.AllButLast(iterator)
-          !! iterator
+        $no-last ?? all-but-last(iterator) !! iterator
     }
 
     # Return iterator for numeric ... Whatever
@@ -1176,7 +1170,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
           ?? UnendingSucc.new($no-first ?? $first.succ !! $first)
           !! $endpoint == -Inf
             ?? $no-last
-              ?? self.AllButLast(
+              ?? all-but-last(
                    UnendingPred.new($no-first ?? $first.pred !! $first)
                  )
               !! UnendingPred.new($no-first ?? $first.pred !! $first)
@@ -1184,40 +1178,30 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     }
 
     # helper methods for lambdas
-    method !lambda-none(\initials, \lambda, \endpoint) {
-        nqp::if(
-          nqp::istype(endpoint,Whatever) || endpoint === Inf,
-          LambdaNone.new(initials, lambda),
-          die
-        )
+    method !lambda-none(\initials, \lambda, \endpoint, int $no-last) {
+        nqp::istype(endpoint,Whatever) || endpoint === Inf
+          ?? LambdaNone.new(initials, lambda, $no-last)
+          !! LambdaNoneAccepts.new(initials, lambda, endpoint, $no-last)
     }
-    method !lambda1(\initials, \lambda, \endpoint) {
-        nqp::if(
-          nqp::istype(endpoint,Whatever) || endpoint === Inf,
-          Lambda1.new(initials, lambda),
-          die
-        )
+    method !lambda1(\initials, \lambda, \endpoint, int $no-last) {
+        nqp::istype(endpoint,Whatever) || endpoint === Inf
+          ?? Lambda1.new(initials, lambda, $no-last)
+          !! Lambda1Accepts.new(initials, lambda, endpoint, $no-last)
     }
-    method !lambda2(\initials, \lambda, \endpoint) {
-        nqp::if(
-          nqp::istype(endpoint,Whatever) || endpoint === Inf,
-          Lambda2.new(initials, lambda),
-          die
-        )
+    method !lambda2(\initials, \lambda, \endpoint, int $no-last) {
+        nqp::istype(endpoint,Whatever) || endpoint === Inf
+          ?? Lambda2.new(initials, lambda, $no-last)
+          !! Lambda2Accepts.new(initials, lambda, endpoint, $no-last)
     }
-    method !lambda-n(\initials, \lambda, \endpoint, int $elems) {
-        nqp::if(
-          nqp::istype(endpoint,Whatever) || endpoint === Inf,
-          LambdaN.new(initials, lambda, $elems),
-          die
-        )
+    method !lambda-n(\initials, \lambda, \endpoint, int $no-last, int $elems) {
+        nqp::istype(endpoint,Whatever) || endpoint === Inf
+          ?? LambdaN.new(initials, lambda, $no-last, $elems)
+          !! LambdaNAccepts.new(initials, lambda, endpoint, $no-last, $elems)
     }
-    method !lambda-all(\initials, \lambda, \endpoint) {
-        nqp::if(
-          nqp::istype(endpoint,Whatever) || endpoint === Inf,
-          LambdaAll.new(initials, lambda),
-          die
-        )
+    method !lambda-all(\initials, \lambda, \endpoint, int $no-last) {
+        nqp::istype(endpoint,Whatever) || endpoint === Inf
+          ?? LambdaAll.new(initials, lambda, $no-last)
+          !! LambdaAllAccepts.new(initials, lambda, endpoint, $no-last)
     }
 
     # Return iterator for given initial values without endpoint
@@ -1239,20 +1223,23 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                 (my $arg-count := pulled.arity || pulled.count),
                 nqp::if(
                   $arg-count == 1,
-                  self!lambda1($initials, pulled, nqp::decont(endpoint)),
+                  self!lambda1($initials, pulled,
+                    nqp::decont(endpoint), $no-last),
                   nqp::if(
                     $arg-count == 2,
-                    self!lambda2($initials, pulled, nqp::decont(endpoint)),
+                    self!lambda2($initials, pulled,
+                      nqp::decont(endpoint), $no-last),
                     nqp::if(
                       $arg-count == Inf,
-                      self!lambda-all(
-                        $initials, pulled, nqp::decont(endpoint)),
-                      self!lambda-n(
-                        $initials, pulled, nqp::decont(endpoint), $arg-count)
+                      self!lambda-all($initials, pulled,
+                        nqp::decont(endpoint), $no-last),
+                      self!lambda-n($initials, pulled,
+                        nqp::decont(endpoint), $no-last, $arg-count)
                     )
                   )
                 ),
-                self!lambda-none($initials, pulled, nqp::decont(endpoint))
+                self!lambda-none($initials, pulled,
+                  nqp::decont(endpoint), $no-last)
               )),
               nqp::push($initials,pulled)
             ),
@@ -1261,12 +1248,18 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         );
 
         # no iterator yet, use initial values
-        $iterator := self.elucidate($initials) if nqp::isnull($iterator);
+        if nqp::isnull($iterator) {
+            $iterator := self.elucidate($initials);
+            $iterator.skip-one if $no-first;
+            $no-last ?? all-but-last($iterator) !! $iterator
+        }
 
-        $iterator.skip-one if $no-first;
-        $no-last
-          ?? self.AllButLast($iterator)
-          !! $iterator
+        # already handled no-last
+        else {
+            $iterator.skip-one if $no-first;
+            $iterator
+        }
+
     }
 
 #-- the elucidation dispatch ---------------------------------------------------

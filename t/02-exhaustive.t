@@ -245,26 +245,41 @@ my @tests = (
   'sequence with arity > number of return values',
     ('a','b','c',{slip $^x~'x', $^y~'y'~$^z~'z'}), *, <a b c ax bycz cx axybyczz byczx cxyaxybyczzz axybyczzx>,
 
+  'simple sequence with one item and block closure on the LHS',
+    (1,*+2), 9, (1,3,5,7,9),
+
+  'simple sequence with one item and closure on the LHS',
+    (1,{$_-2}), -7, (1,-1,-3,-5,-7),
+
+  'simple sequence with three items and block closure on the LHS',
+    (1,3,5,{$_+2}), 13, (1,3,5,7,9,11,13),
+
+  'tricky sequence with one item and closure on the LHS',
+    (1,{1/((1/$_)+1)}), 0.2, (1,0.5,1/3,0.25,0.2),
+
+  'simple unending alternating sequence with one item and closure on the LHS',
+    (1,{-$_}), 3, |(1,-1) xx 5,
+
+  'simple unending alternating sequence with one item and closure on the LHS',
+    (1,{-$_}), 0, |(1,-1) xx 5,
+
+  'simple sequence with one item and block closure on the LHS',
+    (1,{$_+2}), 10, (1,3,5,7,9,11,13,15,17,19),
+
+  'simple sequence with one item and * closure on the LHS',
+    (1,*+2), 10, (1,3,5,7,9,11,13,15,17,19),
+
+  'simple sequence with three items and block closure on the LHS',
+    (1,3,5,{$_+2}), 14, (1,3,5,7,9,11,13,15,17,19),
+
+  'tricky sequence with one item and closure on the LHS',
+    (1,{1/((1/$_)+1)}), 11/60, (1,0.5,1/3,0.25,0.2,1/6,1/7,0.125,1/9,0.1),
+
+  'using &[+] works',
+    (1,2,&[+]), 8, (1,2,3,5,8),
+
 #  '0-ary generator output can be slipped from the start',
 #     -> {slip 'zero','one'}, *, <zero one zero one zero one zero one zero one>,
-
-#  'multiple endpoints 0 3 0',
-#    [0,3], 0, [(0,1,2,3,2,1,0),(0,1,2,2,1),(1,2,3,1,0),(1,2,1)],
-
-#  'simple chained finite arithmetic sequence',
-#    [1,5], 10, [1..10,(0,1,2,3,4,6,7,8,9),(1,2,3,4,5,7,8,9,10),(1,2,3,4,6,7,8,9)],
-
-#  'chained finite arithmetic sequence',
-#    [3,(5,10),(25,50)], 100, [(3,4,5,10,15,20,25,50,75,100),(3,4,10,15,20,50,75),(4,5,15,20,25,75,100),(4,15,20,75)],
-
-#  'chained finite geometric sequence',
-#    [3,(4,8,16),(64,63)], 60, [(3,4,8,16,32,64,63,62,61,60),(3,8,16,32,63,62,61,60),(4,8,32,64,62,61,60),(4,8,32,62,61)],
-
-#  'chained infinite numeric sequence',
-#    [(1/4,1/2,1),(8,9)], *, [(1/4,1/2,1.0,2.0,4.0,8,9,10,11,12),(1/4,1/2,1.0,4.0,9,10,11),(1/2,1.0,2.0,4.0,8,10,11),(1/2,1.0,2.0,4.0,10,11)],
-
-#  'chained eventually constant numeric sequence',
-#    [(1,4,7),(16,16)], *, [(1,4,7,10,13,16,16,16,16,16),(1,4,7,10,13,16,16,16,16),(4,7,10,13,16,16,16,16,16),(4,7,10,13,16,16,16,16)],
 
 #  'simple additive sequence with two items on the LHS',
 #    (1,3), 9, (1,3,5,7,9),
@@ -299,26 +314,8 @@ my @tests = (
 #  'decreasing multiplicative sequence with three items on the LHS',
 #    (81,27,9), 1, (81,27.0,9.0,3.0,1.0),  # XXX
 
-#  'simple sequence with one item and block closure on the LHS',
-#    (1,*+2), 9, (1,3,5,7,9),
-
-#  'simple sequence with one item and closure on the LHS',
-#    (1,{$_-2}), -7, (1,-1,-3,-5,-7),
-
-#  'simple sequence with three items and block closure on the LHS',
-#    (1,3,5,{$_+2}), 13, (1,3,5,7,9,11,13),
-
-#  'tricky sequence with one item and closure on the LHS',
-#    (1,{1/((1/$_)+1)}), 0.2, (1,0.5,1/3,0.25,0.2),
-
 #  'simple alternating sequence with one item and closure on the LHS',
 #    (1,{-$_}), 1, 1,
-
-#  'simple unending alternating sequence with one item and closure on the LHS',
-#    (1,{-$_}), 3, |(1,-1) xx 5,
-
-#  'simple unending alternating sequence with one item and closure on the LHS',
-#    (1,{-$_}), 0, |(1,-1) xx 5,
 
 #  'sequence with one scalar containing Code on the LHS',
 #    {3+2}, *, 5 xx 10,
@@ -353,18 +350,6 @@ my @tests = (
 #  'decreasing multiplicative sequence with three items on the LHS',
 #    (81,27,9), 8/9, [(81,27.0,9.0,3.0,1.0) xx 2,(27.0,9.0,3.0,1.0) xx 2],
 
-#  'simple sequence with one item and block closure on the LHS',
-#    (1,{$_+2}), 10, (1,3,5,7,9,11,13,15,17,19),
-
-#  'simple sequence with one item and * closure on the LHS',
-#    (1,*+2), 10, (1,3,5,7,9,11,13,15,17,19),
-
-#  'simple sequence with three items and block closure on the LHS',
-#    (1,3,5,{$_+2}), 14, (1,3,5,7,9,11,13,15,17,19),
-
-#  'tricky sequence with one item and closure on the LHS',
-#    (1,{1/((1/$_)+1)}), 11/60, (1,0.5,1/3,0.25,0.2,1/6,1/7,0.125,1/9,0.1),
-
 #  'constant sequence started with two letters',
 #    ('c','c'), *, 'c' xx 10,
 
@@ -388,9 +373,6 @@ my @tests = (
 
 #  'geometric sequence started in one direction and continues in the other',
 #    (4,2,1,2,4), 16, (4,2,1,2,4,8,16),
-
-#  'using &[+] works',
-#    (1,2,&[+]), 8, (1,2,3,5,8),
 
 #  'geometric sequence that never reaches its limit',
 #    (1,1/2,1/4), 0, (1,1/2,1/4,1/8,1/16,1/32,1/64,1/128,1/256,1/512),
@@ -481,6 +463,24 @@ my @tests = (
 
 #  'intuition does not try to cmp a WhateverCode',
 #    H.new(5), *.x > 8, (H.new(5),H.new(6),H.new(7),H.new(8),H.new(9)),
+
+#  'multiple endpoints 0 3 0',
+#    [0,3], 0, [(0,1,2,3,2,1,0),(0,1,2,2,1),(1,2,3,1,0),(1,2,1)],
+
+#  'simple chained finite arithmetic sequence',
+#    [1,5], 10, [1..10,(0,1,2,3,4,6,7,8,9),(1,2,3,4,5,7,8,9,10),(1,2,3,4,6,7,8,9)],
+
+#  'chained finite arithmetic sequence',
+#    [3,(5,10),(25,50)], 100, [(3,4,5,10,15,20,25,50,75,100),(3,4,10,15,20,50,75),(4,5,15,20,25,75,100),(4,15,20,75)],
+
+#  'chained finite geometric sequence',
+#    [3,(4,8,16),(64,63)], 60, [(3,4,8,16,32,64,63,62,61,60),(3,8,16,32,63,62,61,60),(4,8,32,64,62,61,60),(4,8,32,62,61)],
+
+#  'chained infinite numeric sequence',
+#    [(1/4,1/2,1),(8,9)], *, [(1/4,1/2,1.0,2.0,4.0,8,9,10,11,12),(1/4,1/2,1.0,4.0,9,10,11),(1/2,1.0,2.0,4.0,8,10,11),(1/2,1.0,2.0,4.0,10,11)],
+
+#  'chained eventually constant numeric sequence',
+#    [(1,4,7),(16,16)], *, [(1,4,7,10,13,16,16,16,16,16),(1,4,7,10,13,16,16,16,16),(4,7,10,13,16,16,16,16,16),(4,7,10,13,16,16,16,16)],
 );
 
 # Run the tests
