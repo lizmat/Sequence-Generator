@@ -1183,10 +1183,47 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             !! die
     }
 
+    # helper methods for lambdas
+    method !lambda-none(\initials, \lambda, \endpoint) {
+        nqp::if(
+          nqp::istype(endpoint,Whatever) || endpoint === Inf,
+          LambdaNone.new(initials, lambda),
+          die
+        )
+    }
+    method !lambda1(\initials, \lambda, \endpoint) {
+        nqp::if(
+          nqp::istype(endpoint,Whatever) || endpoint === Inf,
+          Lambda1.new(initials, lambda),
+          die
+        )
+    }
+    method !lambda2(\initials, \lambda, \endpoint) {
+        nqp::if(
+          nqp::istype(endpoint,Whatever) || endpoint === Inf,
+          Lambda2.new(initials, lambda),
+          die
+        )
+    }
+    method !lambda-n(\initials, \lambda, \endpoint, int $elems) {
+        nqp::if(
+          nqp::istype(endpoint,Whatever) || endpoint === Inf,
+          LambdaN.new(initials, lambda, $elems),
+          die
+        )
+    }
+    method !lambda-all(\initials, \lambda, \endpoint) {
+        nqp::if(
+          nqp::istype(endpoint,Whatever) || endpoint === Inf,
+          LambdaAll.new(initials, lambda),
+          die
+        )
+    }
+
     # Return iterator for given initial values without endpoint
     multi method iterator(
-      @source, Whatever, Int:D $no-first, Int:D $no-last
-    --> Iterator:D) {
+      @source, Mu \endpoint, Int:D $no-first, Int:D $no-last
+    --> Iterator:D) is default {
         my $initials := nqp::create(IterationBuffer);
         my $iterator := nqp::null;
         my $source   := @source.iterator;
@@ -1202,18 +1239,20 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                 (my $arg-count := pulled.arity || pulled.count),
                 nqp::if(
                   $arg-count == 1,
-                  Lambda1.new($initials, pulled),
+                  self!lambda1($initials, pulled, nqp::decont(endpoint)),
                   nqp::if(
                     $arg-count == 2,
-                    Lambda2.new($initials, pulled),
+                    self!lambda2($initials, pulled, nqp::decont(endpoint)),
                     nqp::if(
                       $arg-count == Inf,
-                      LambdaAll.new($initials, pulled, Whatever),
-                      LambdaN.new($initials, pulled, $arg-count)
+                      self!lambda-all(
+                        $initials, pulled, nqp::decont(endpoint)),
+                      self!lambda-n(
+                        $initials, pulled, nqp::decont(endpoint), $arg-count)
                     )
                   )
                 ),
-                LambdaNone.new($initials, pulled)
+                self!lambda-none($initials, pulled, nqp::decont(endpoint))
               )),
               nqp::push($initials,pulled)
             ),
@@ -1228,19 +1267,6 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         $no-last
           ?? self.AllButLast($iterator)
           !! $iterator
-    }
-
-    # Return iterator for given initial values without endpoint
-    multi method iterator(
-      @source, Numeric:D \endpoint, Int:D $no-first, Int:D $no-last
-    --> Iterator:D) {
-        if endpoint == Inf {
-            self.iterator(@source, Whatever, $no-first, $no-last)
-        }
-        else {
-#            self.iterator(@source, Whatever, 0, 0)
-            die
-        }
     }
 
 #-- the elucidation dispatch ---------------------------------------------------
