@@ -281,23 +281,38 @@ my @tests = (
   'list on LHS with callable, list with lambda on rhs',
     (1,* * 2), (32,42,666), [(1,2,4,8,16,32,42,666),(1,2,4,8,16,42,666),(2,4,8,16,32,42,666),(2,4,8,16,42,666)],
 
+  'simple additive sequence with two items on the LHS',
+    (1,3), 9, (1,3,5,7,9),
+
+  'simple decreasing sequence with two items on the LHS',
+    (1,0), -3, (1,0,-1,-2,-3),
+
+  'simple sequence of Rats',
+    (1.0,2.0), 7, 1.0..7.0,
+
+  'simple sequence of Nums',
+    (1e0,2e0), 7, 1e0..7e0,
+
+  'simple decreasing additive sequence with two items on the LHS',
+    (1,-1), -3, (1,-1,-3),
+
+  'simple additive sequence with two items on the LHS',
+    (1,3), 10, (1,3,5,7,9),
+
+  'simple decreasing additive sequence with two items on the LHS',
+    (1,0), -3.5, (1,0,-1,-2,-3),
+
+  'constant sequence started with two letters',
+    ('c','c'), *, 'c' xx 10,
+
+  'no more: limit value is on the wrong side',
+    (1,2), 0, (),
+
+  'descending sequence started with two different letters',
+    <i h>, 'a', <i h g f e d c b a>,
+
 #  '0-ary generator output can be slipped from the start',
 #     -> {slip 'zero','one'}, *, <zero one zero one zero one zero one zero one>,
-
-#  'simple additive sequence with two items on the LHS',
-#    (1,3), 9, (1,3,5,7,9),
-
-#  'simple decreasing sequence with two items on the LHS',
-#    (1,0), -3, (1,0,-1,-2,-3),
-
-#  'simple sequence of Rats',
-#    (1.0,2.0), 7, 1.0..7.0,
-
-#  'simple sequence of Nums',
-#    (1e0,2e0), 7, 1e0..7e0,
-
-#  'simple decreasing additive sequence with two items on the LHS',
-#    (1,-1), -3, (1,-1,-3),
 
 #  'simple additive sequence with three items on the LHS',
 #    (1,3,5), 9, (1,3,5,7,9),
@@ -338,12 +353,6 @@ my @tests = (
 #  'simple sequence with two weird items on the RHS',
 #    1, (5,'a','b'), [(1,2,3,4,5,'a','b'),(1,2,3,4,'a','b'),(2,3,4,5,'a','b'),(2,3,4,'a','b')],
 
-#  'simple additive sequence with two items on the LHS',
-#    (1,3), 10, [(1,3,5,7,9) xx 2, (3,5,7,9) xx 2],
-
-#  'simple decreasing additive sequence with two items on the LHS',
-#    (1,0), -3.5, [(1,0,-1,-2,-3) xx 2, (0,-1,-2,-3) xx 2],
-
 #  'simple additive sequence with three items on the LHS',
 #    (1,3,5), 10, [(1,3,5,7,9) xx 2, (3,5,7,9) xx 2],
 
@@ -352,9 +361,6 @@ my @tests = (
 
 #  'decreasing multiplicative sequence with three items on the LHS',
 #    (81,27,9), 8/9, [(81,27.0,9.0,3.0,1.0) xx 2,(27.0,9.0,3.0,1.0) xx 2],
-
-#  'constant sequence started with two letters',
-#    ('c','c'), *, 'c' xx 10,
 
 #  'constant sequence started with three letters',
 #    ('c','c','c'), *, 'c' xx 10,
@@ -382,9 +388,6 @@ my @tests = (
 
 #  'alternating geometric sequence that never reaches its limit',
 #    (1,-1/2,1/4), 0, (1,-1/2,1/4,-1/8,1/16,-1/32,1/64,-1/128,1/256,-1/512),
-
-#  'no more: limit value is on the wrong side',
-#    (1,2), 0, (),
 
 #  '-3 ... ^3 produces just one zero',
 #    -3, ^3, [(-3,-2,-1,0,1,2),(-3,-2,-1,1,2),(-2,-1,0,1,2),(-2,-1,1,2)],
@@ -454,9 +457,6 @@ my @tests = (
 
 #  'using a lazy array as a LHS',
 #    @fib, 8, (0,1,1,2,3,5,8),
-
-#  'descending sequence started with two different letters',
-#    <i h>, 'a', <i h g f e d c b a>,
 
 #  'descending sequence started with three different letters',
 #    <i h g>, 'a', <i h g f e d c b a>,

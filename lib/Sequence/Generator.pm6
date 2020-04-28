@@ -1310,24 +1310,49 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     method !elucidate2(
       IterationBuffer:D \seed, \endpoint, int $no-last
     --> Iterator:D) {
-        if nqp::istype(endpoint,Whatever) || endpoint === Inf {
-            my \one := nqp::atpos(seed,0);
-            my \two := nqp::atpos(seed,1);
+        my \one := nqp::atpos(seed,0);
+        my \two := nqp::atpos(seed,1);
 
-            nqp::eqaddr(one.WHAT,two.WHAT)
-              ?? nqp::istype(one,Numeric)
-                ?? (my $step := two - one)
-                  ?? UnendingStep.new(one - $step, $step)
+        if nqp::eqaddr(one.WHAT,two.WHAT) {
+            if nqp::istype(one,Numeric) {
+                (my \step := two - one)
+                  ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
+                    ?? UnendingStep.new(one - step, step)
+                    !! nqp::istype(endpoint,Numeric)
+                      ?? step-to(one, step, endpoint, $no-last)
+                      !! endpoint-mismatch(one, endpoint)
                   !! UnendingValue.new(one)
-                !! one.succ === two
+            }
+            elsif one.succ === two {
+                nqp::istype(endpoint,Whatever) || endpoint === Inf
                   ?? UnendingSucc.new(one)
-                  !! two.succ === one
-                    ?? UnendingPred.new(one)
-                    !! BufferIterator(seed, UnendingSucc.new(two.succ))
-              !! not-deducable(one,two)
+                  !! nqp::istype(endpoint,one.WHAT)
+                    ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
+                    !! endpoint-mismatch(one, endpoint)
+            }
+            elsif two.succ === one {
+                nqp::istype(endpoint,Whatever) || endpoint === Inf
+                  ?? UnendingPred.new(one)
+                  !! nqp::istype(endpoint,one.WHAT)
+                    ?? Lambda1Accepts.new(seed, {
+                         nqp::istype((my \value := .pred),Failure)
+                           ?? (last)
+                           !! value
+                       }, endpoint, $no-last)
+                    !! endpoint-mismatch(one, endpoint)
+            }
+            elsif one === two {
+                UnendingValue.new(one)
+            }
+            elsif nqp::istype(endpoint,Whatever) || endpoint === Inf {
+                BufferIterator.new(seed, UnendingSucc.new(two.succ))
+            }
+            else {
+                not-deducable(one,two)
+            }
         }
         else {
-            die
+            not-deducable(one,two)
         }
     }
 
@@ -1400,6 +1425,14 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     }
 
 #-- helper subs ----------------------------------------------------------------
+
+    sub step-to(\value, \step, \endpoint, int $no-last --> Iterator:D) {
+        step > 0
+          ?? StepUpto.new(  value - step, step,
+               $no-last ?? endpoint - step !! endpoint)
+          !! StepDownto.new(value - step, step,
+               $no-last ?? endpoint - step !! endpoint)
+    }
 
     # ender version for unending sequences
     sub no-end($ --> 0) { }

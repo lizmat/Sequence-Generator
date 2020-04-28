@@ -56,6 +56,15 @@ The original implementation of the `...` would ignore any values **after** a Cal
 
 This now dies.
 
+No longer silently ignores values with RHS list starting with *
+---------------------------------------------------------------
+
+The original implementation of the `...` would ignore any values **after** a Whatever as the first element of a list on the RHS, e.g.:
+
+    1,2,3 ... *,42,666
+
+This now dies.
+
 AUTHOR
 ======
 
