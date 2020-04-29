@@ -62,7 +62,7 @@ sub test-seq($description, Mu \seed, Mu \endpoint, \list) {
 
     # run the tests
     subtest $description => {
-        plan 8;
+        plan 4;
         is-deeply infix:<...>(  seed, endpoint).head(10).List, $result,
           " ...  {$result.raku}";
         is-deeply infix:<...^>( seed, endpoint).head(10).List, $resultV,
@@ -71,14 +71,6 @@ sub test-seq($description, Mu \seed, Mu \endpoint, \list) {
           "^...  {$Vresult.raku}";
         is-deeply infix:<^...^>(seed, endpoint).head(9).List, $VresultV,
           "^...^ {$VresultV.raku}";
-        is-deeply infix:<…>(seed, endpoint).head(10).List, $result,
-          "… {$result.raku}";
-        is-deeply infix:<…^>(seed, endpoint).head(10).List, $resultV,
-          "…^ {$resultV.raku}";
-        is-deeply infix:<^…>( seed, endpoint).head(9).List, $Vresult,
-          "^…  {$Vresult.raku}";
-        is-deeply infix:<^…^>(seed, endpoint).head(9).List, $VresultV,
-          "^…^ {$VresultV.raku}";
     }
 
     # optionally run same test for Inf as endpoint
@@ -311,26 +303,41 @@ my @tests = (
   'descending sequence started with two different letters',
     <i h>, 'a', <i h g f e d c b a>,
 
+  'simple additive sequence with three items on the LHS',
+    (1,3,5), 9, (1,3,5,7,9),
+
+  'simple descreasing additive sequence with three items on the LHS',
+    (9,7,5), 1, (9,7,5,3,1),
+
+  'simple multiplicative sequence with three items on the LHS',
+    (1,3,9), 81, (1,3,9,27,81),
+
+  'simple geometric sequence of Rats',
+    (1.0,2.0,4.0), 64, (1.0,2.0,4.0,8.0,16.0,32.0,64.0),
+
+  'simple geometric sequence of Nums',
+    (1e0,2e0,4e0), 64, (1e0,2e0,4e0,8e0,16e0,32e0,64e0),
+
+  'decreasing multiplicative sequence with three items on the LHS',
+    (81,27,9), 1, (81,27,9,3.0,1.0),
+
+  'sequence started with three identical numbers, but then goes arithmetic',
+    (1,1,1,2,3), 7, (1,1,1,2,3,4,5,6,7),
+
+  'sequence started with three identical numbers, but then goes geometric',
+    (1,1,1,2,4), 16, (1,1,1,2,4,8,16),
+
+  'geometric sequence started in one direction and continues in the other',
+    (4,2,1,2,4), 16, (4,2,1,2,4,8,16),
+
+  'geometric sequence that never reaches its limit',
+    (1,1/2,1/4), 0, (1,1/2,1/4,1/8,1/16,1/32,1/64,1/128,1/256,1/512),
+
+  'alternating geometric sequence that never reaches its limit',
+    (1,-1/2,1/4), 0, (1,-1/2,1/4,-1/8,1/16,-1/32,1/64,-1/128,1/256,-1/512),
+
 #  '0-ary generator output can be slipped from the start',
 #     -> {slip 'zero','one'}, *, <zero one zero one zero one zero one zero one>,
-
-#  'simple additive sequence with three items on the LHS',
-#    (1,3,5), 9, (1,3,5,7,9),
-
-#  'simple descreasing additive sequence with three items on the LHS',
-#    (9,7,5), 1, (9,7,5,3,1),
-
-#  'simple multiplicative sequence with three items on the LHS',
-#    (1,3,9), 81, (1,3,9,27,81),
-
-#  'simple geometric sequence of Rats',
-#    (1.0,2.0,4.0), 64, (1.0,2.0,4.0,8.0,16.0,32.0,64.0),
-
-#  'simple geometric sequence of Nums',
-#    (1e0,2e0,4e0), 64, (1e0,2e0,4e0,8e0,16e0,32e0,64e0),
-
-#  'decreasing multiplicative sequence with three items on the LHS',
-#    (81,27,9), 1, (81,27.0,9.0,3.0,1.0),  # XXX
 
 #  'simple alternating sequence with one item and closure on the LHS',
 #    (1,{-$_}), 1, 1,
@@ -354,7 +361,7 @@ my @tests = (
 #    1, (5,'a','b'), [(1,2,3,4,5,'a','b'),(1,2,3,4,'a','b'),(2,3,4,5,'a','b'),(2,3,4,'a','b')],
 
 #  'simple additive sequence with three items on the LHS',
-#    (1,3,5), 10, [(1,3,5,7,9) xx 2, (3,5,7,9) xx 2],
+#    (1,3,5), 10, (1,3,5,7,9),
 
 #  'simple multiplicative sequence with three items on the LHS',
 #    (1,3,9), 100, [(1,3,9,27,81) xx 2, (3,9,27,81) xx 2],
@@ -373,21 +380,6 @@ my @tests = (
 
 #  'simple sequence with two weird items on the RHS',
 #    1, (*,"foo","bar"), 1..10,
-
-#  'sequence started with three identical numbers, but then goes arithmetic',
-#    (1,1,1,2,3), 7, (1,1,1,2,3,4,5,6,7),
-
-#  'sequence started with three identical numbers, but then goes geometric',
-#    (1,1,1,2,4), 16, (1,1,1,2,4,8,16),
-
-#  'geometric sequence started in one direction and continues in the other',
-#    (4,2,1,2,4), 16, (4,2,1,2,4,8,16),
-
-#  'geometric sequence that never reaches its limit',
-#    (1,1/2,1/4), 0, (1,1/2,1/4,1/8,1/16,1/32,1/64,1/128,1/256,1/512),
-
-#  'alternating geometric sequence that never reaches its limit',
-#    (1,-1/2,1/4), 0, (1,-1/2,1/4,-1/8,1/16,-1/32,1/64,-1/128,1/256,-1/512),
 
 #  '-3 ... ^3 produces just one zero',
 #    -3, ^3, [(-3,-2,-1,0,1,2),(-3,-2,-1,1,2),(-2,-1,0,1,2),(-2,-1,1,2)],

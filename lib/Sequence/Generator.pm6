@@ -146,28 +146,13 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     class UnendingStep does Iterator {
         has $!value;
         has $!step;
-        method !SET-SELF(\first, \step) {
-            $!value := first - step;
-            $!step  := step;
-            self
+        method new(\first,\step --> Iterator:D) {
+            my $new := nqp::create(self);
+            nqp::bindattr($new,self,'$!value',first - step);
+            nqp::bindattr($new,self,'$!step',step);
+            $new
         }
-        method new(\first,\step) { nqp::create(self)!SET-SELF(first,step) }
         method pull-one() is raw { $!value := $!value + $!step }
-        method is-lazy(--> True) { }
-    }
-
-    # Unending iterator for constant numeric multiplication.  Note that this
-    # iterator accepts the value *before* the first value that will be produced.
-    class UnendingMult does Iterator {
-        has $!value;
-        has $!mult;
-        method !SET-SELF(\first, \mult) {
-            $!value := first;
-            $!mult  := mult;
-            self
-        }
-        method new(\first,\mult) { nqp::create(self)!SET-SELF(first,mult) }
-        method pull-one() is raw { $!value := $!value * $!mult }
         method is-lazy(--> True) { }
     }
 
@@ -176,14 +161,13 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has $!value;
         has $!step;
         has $!downto;
-        method !SET-SELF(\first, \step, \downto) {
-            $!value  := first - step;
-            $!step   := step;
-            $!downto := downto;
-            self
-        }
-        method new(\first,\step,\downto) {
-            nqp::create(self)!SET-SELF(first,step,downto)
+
+        method new(\first, \step, \downto --> Iterator:D) {
+            my $new := nqp::create(self);
+            nqp::bindattr($new,self,'$!value',first - step);
+            nqp::bindattr($new,self,'$!step',step);
+            nqp::bindattr($new,self,'$!downto',downto);
+            $new
         }
         method pull-one() is raw {
             ($!value := $!value + $!step) < $!downto
@@ -199,14 +183,13 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has $!value;
         has $!step;
         has $!upto;
-        method !SET-SELF(\first, \step, \upto) {
-            $!value := first - step;
-            $!step  := step;
-            $!upto  := upto;
-            self
-        }
-        method new(\first,\step,\upto) {
-            nqp::create(self)!SET-SELF(first,step,upto)
+
+        method new(\first, \step, \upto --> Iterator:D) {
+            my $new := nqp::create(self);
+            nqp::bindattr($new,self,'$!value',first - step);
+            nqp::bindattr($new,self,'$!step',step);
+            nqp::bindattr($new,self,'$!upto',upto);
+            $new
         }
         method pull-one() is raw {
             ($!value := $!value + $!step) > $!upto
@@ -598,12 +581,14 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has $!value;    # value to be passed to lambda to produce next value
         has $!producer; # lambda to produce value
         has $!ender;    # lambda returning true if sequence should end
+        has int $!no-last; # flag to indicate skipping last produced value
 
-        method new(\seed, \producer, \ender) {
+        method new(\seed, \producer, \ender, int $no-last) {
             my $new := nqp::create(self);
             nqp::bindattr($new,self,'$!slipping',seed.iterator);
             nqp::bindattr($new,self,'$!producer',producer);
             nqp::bindattr($new,self,'$!ender',ender);
+            nqp::bindattr_i($new,self,'$!no-last',$no-last);
             $new
         }
         method pull-one() is raw { 
@@ -612,7 +597,9 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               nqp::isnull($!slipping),
               nqp::stmts(                       # not slipping
                 nqp::handle(
-                  ($result := $!producer($!value)),
+                  ($result := nqp::ifnull(
+                    $!producer,(return IterationEnd)
+                  )($!value)),
                   'LAST', (return IterationEnd)
                 ),
                 nqp::if(
@@ -628,7 +615,14 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
             nqp::if(
               $!ender($result),
-              IterationEnd,
+              nqp::if(
+                $!no-last,
+                IterationEnd,  # don't bother to produce last value
+                nqp::stmts(
+                  ($!producer := nqp::null),
+                  $result
+                )
+              ),
               ($!value := $result)
             )
         }
@@ -1141,7 +1135,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
     # Return iterator for 2 numeric endpoints
     multi method iterator(
-      Numeric:D \first, Numeric:D \endpoint, Int:D $no-first, Int:D $no-last
+      Real:D \first, Real:D \endpoint, Int:D $no-first, Int:D $no-last
     --> Iterator:D) {
         my \iterator := endpoint < first
           ?? endpoint == -Inf
@@ -1156,7 +1150,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
     # Return iterator for numeric ... Whatever
     multi method iterator(
-      Numeric:D \first, Whatever, Int:D $no-first, Int:D $
+      Real:D \first, Whatever, Int:D $no-first, Int:D $
     --> Iterator:D) {
         UnendingStep.new(first + $no-first, 1)
     }
@@ -1191,7 +1185,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
     # Return iterator for anything unending
     multi method iterator(
-      Any:D $first, Numeric:D $endpoint, Int:D $no-first, Int:D $no-last
+      Any:D $first, Real:D $endpoint, Int:D $no-first, Int:D $no-last
     --> Iterator:D) {
         $endpoint == Inf
           ?? UnendingSucc.new($no-first ?? $first.succ !! $first)
@@ -1315,11 +1309,11 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         my \two := nqp::atpos(seed,1);
 
         if nqp::eqaddr(one.WHAT,two.WHAT) {
-            if nqp::istype(one,Numeric) {
+            if nqp::istype(one,Real) {
                 (my \step := two - one)
                   ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
                     ?? UnendingStep.new(one, step)
-                    !! nqp::istype(endpoint,Numeric)
+                    !! nqp::istype(endpoint,Real)
                       ?? step-to(one, step, endpoint, $no-last)
                       !! endpoint-mismatch(one, endpoint)
                   !! UnendingValue.new(one)
@@ -1361,56 +1355,73 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
       IterationBuffer:D \seed, \endpoint, int $no-last
     --> Iterator:D) {
         my int $elems = nqp::elems(seed);
+        my \one   := nqp::atpos(seed,$elems - 3);
+        my \two   := nqp::atpos(seed,$elems - 2);
+        my \three := nqp::atpos(seed,$elems - 1);
+        my $step;
 
-        if nqp::istype(endpoint,Whatever) || endpoint === Inf {
-            my \one   := nqp::atpos(seed,$elems - 3);
-            my \two   := nqp::atpos(seed,$elems - 2);
-            my \three := nqp::atpos(seed,$elems - 1);
-            my $step;
+        # all can be considered numerical
+        if nqp::istype(one.WHAT,Real)
+          && nqp::istype(two.WHAT,Real)
+          && nqp::istype(three.WHAT,Real) {
+            $step := two - one;
 
-            # all the same type
-            if nqp::eqaddr(one.WHAT,two.WHAT)
-              && nqp::eqaddr(two.WHAT,three.WHAT) {
+            # arithmetic sequence
+            if three - two == $step {
+                nqp::istype(endpoint,Whatever) || endpoint === Inf
+                  ?? TwoIterators.new(
+                       seed.iterator, UnendingStep.new(three + $step, $step))
+                  !! nqp::istype(endpoint,Real)
+                    ?? Lambda1Accepts.new(seed, * + $step,
+                         $step > 0 ?? * >= endpoint !! * <= endpoint, $no-last)
+                    !! nqp::istype(endpoint,Callable)
+                      ?? Lambda1Accepts.new(seed, * + $step, endpoint, $no-last)
+                      !! endpoint-mismatch(seed, endpoint)
+            }
 
-                # it knows how to do numbers
-                if nqp::istype(one.WHAT,Numeric) {
-                    $step := two - one;
-                    if three - two == $step {
-                        BufferIterator.new(
-                          seed, UnendingStep.new(three + $step, $step))
-                    }
-                    elsif one == 0 or two == 0 or three == 0 {
-                        not-deducable(one,two,three)
-                    }
-                    else {
-                        my $mult := (two / one).narrow;
-                        three / two == $mult
-                          ?? BufferIterator.new(
-                               seed, UnendingMult.new(three, $mult))
-                          !! not-deducable(one,two,three)
-                    }
-                }
-
-                # string always .succ or other classes that don't add up
-                elsif nqp::istype(one,Str)
-                  || try { $step := two - one } === Nil {
-                    BufferIterator.new(seed, UnendingSucc.new(three.succ))
-                }
-
-                # classes that can add up
-                else {
-                    three - two === $step
-                      ?? BufferIterator.new(
-                           seed, UnendingStep.new(three + $step, $step))
-                      !! not-deducable(one,two,three);
-                }
+            # something to check still
+            elsif one || two || three {
+                my $mult := (two / one).narrow;
+                three / two == $mult
+                  ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
+                    ?? Lambda1.new(seed, * * $mult, $no-last)
+                    !! nqp::istype(endpoint,Real)
+                         || nqp::istype(endpoint,Callable)
+                      ?? Lambda1Accepts.new(seed,* * $mult,endpoint,$no-last)
+                      !! endpoint-mismatch(seed, endpoint)
+                  !! nqp::istype(endpoint,Whatever) || endpoint === Inf
+                    ?? TwoIterators.new(
+                         seed.iterator, UnendingStep.new(three + 1, 1))
+                    !! nqp::istype(endpoint,Real)
+                         || nqp::istype(endpoint,Callable)
+                      ?? Lambda1Accepts.new(seed, * + 1, endpoint, $no-last)
+                      !! endpoint-mismatch(seed, endpoint)
             }
             else {
-                not-deducable(one,two,three);
+                not-deducable(one,two,three)
+            }
+        }
+
+        # all the same type
+        elsif nqp::eqaddr(one.WHAT,two.WHAT)
+          && nqp::eqaddr(two.WHAT,three.WHAT) {
+
+            # string always .succ or other classes that don't add up
+            if nqp::istype(one,Str)
+              || try { $step := two - one } === Nil {
+                BufferIterator.new(seed, UnendingSucc.new(three.succ))
+            }
+
+            # classes that can add up
+            else {
+                three - two === $step
+                  ?? BufferIterator.new(
+                       seed, UnendingStep.new(three + $step, $step))
+                  !! not-deducable(one,two,three);
             }
         }
         else {
-            die
+            not-deducable(one,two,three);
         }
     }
 
