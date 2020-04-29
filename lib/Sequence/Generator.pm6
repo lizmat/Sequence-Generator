@@ -146,12 +146,12 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     class UnendingStep does Iterator {
         has $!value;
         has $!step;
-        method !SET-SELF(\start, \step) {
-            $!value := start;
+        method !SET-SELF(\first, \step) {
+            $!value := first - step;
             $!step  := step;
             self
         }
-        method new(\start,\step) { nqp::create(self)!SET-SELF(start,step) }
+        method new(\first,\step) { nqp::create(self)!SET-SELF(first,step) }
         method pull-one() is raw { $!value := $!value + $!step }
         method is-lazy(--> True) { }
     }
@@ -175,14 +175,14 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has $!value;
         has $!step;
         has $!downto;
-        method !SET-SELF(\start, \step, \downto) {
-            $!value  := start;
+        method !SET-SELF(\first, \step, \downto) {
+            $!value  := first - step;
             $!step   := step;
             $!downto := downto;
             self
         }
-        method new(\start,\step,\downto) {
-            nqp::create(self)!SET-SELF(start,step,downto)
+        method new(\first,\step,\downto) {
+            nqp::create(self)!SET-SELF(first,step,downto)
         }
         method pull-one() is raw {
             ($!value := $!value + $!step) < $!downto
@@ -198,14 +198,14 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has $!value;
         has $!step;
         has $!upto;
-        method !SET-SELF(\start, \step, \upto) {
-            $!value := start;
+        method !SET-SELF(\first, \step, \upto) {
+            $!value := first - step;
             $!step  := step;
             $!upto  := upto;
             self
         }
-        method new(\start,\step,\upto) {
-            nqp::create(self)!SET-SELF(start,step,upto)
+        method new(\first,\step,\upto) {
+            nqp::create(self)!SET-SELF(first,step,upto)
         }
         method pull-one() is raw {
             ($!value := $!value + $!step) > $!upto
@@ -1144,11 +1144,11 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     --> Iterator:D) {
         my \iterator := endpoint < first
           ?? endpoint == -Inf
-            ?? UnendingStep.new(first + 1 - $no-first, -1)
-            !! StepDownto.new(first + 1 - $no-first, -1, endpoint)
+            ?? UnendingStep.new(first - $no-first, -1)
+            !! StepDownto.new(first - $no-first, -1, endpoint)
           !! endpoint == Inf
-            ?? UnendingStep.new(first - 1 + $no-first, +1)
-            !! StepUpto.new(first - 1 + $no-first, +1, endpoint);
+            ?? UnendingStep.new(first + $no-first, +1)
+            !! StepUpto.new(first + $no-first, +1, endpoint);
 
         $no-last ?? all-but-last(iterator) !! iterator
     }
@@ -1157,7 +1157,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     multi method iterator(
       Numeric:D \first, Whatever, Int:D $no-first, Int:D $
     --> Iterator:D) {
-        UnendingStep.new(first - 1 + $no-first, 1)
+        UnendingStep.new(first + $no-first, 1)
     }
 
     # Return iterator for two string endpoints
@@ -1317,7 +1317,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             if nqp::istype(one,Numeric) {
                 (my \step := two - one)
                   ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
-                    ?? UnendingStep.new(one - step, step)
+                    ?? UnendingStep.new(one, step)
                     !! nqp::istype(endpoint,Numeric)
                       ?? step-to(one, step, endpoint, $no-last)
                       !! endpoint-mismatch(one, endpoint)
@@ -1376,7 +1376,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                     $step := two - one;
                     if three - two == $step {
                         BufferIterator.new(
-                          seed, UnendingStep.new(three, $step))
+                          seed, UnendingStep.new(three + $step, $step))
                     }
                     elsif one == 0 or two == 0 or three == 0 {
                         not-deducable(one,two,three)
@@ -1400,7 +1400,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                 else {
                     three - two === $step
                       ?? BufferIterator.new(
-                           seed, UnendingStep.new(three,$step))
+                           seed, UnendingStep.new(three + $step, $step))
                       !! not-deducable(one,two,three);
                 }
             }
@@ -1428,9 +1428,9 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
     sub step-to(\value, \step, \endpoint, int $no-last --> Iterator:D) {
         step > 0
-          ?? StepUpto.new(  value - step, step,
+          ?? StepUpto.new(  value, step,
                $no-last ?? endpoint - step !! endpoint)
-          !! StepDownto.new(value - step, step,
+          !! StepDownto.new(value, step,
                $no-last ?? endpoint - step !! endpoint)
     }
 
