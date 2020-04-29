@@ -156,7 +156,8 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method is-lazy(--> True) { }
     }
 
-    # Unending iterator for constant numeric multiplication
+    # Unending iterator for constant numeric multiplication.  Note that this
+    # iterator accepts the value *before* the first value that will be produced.
     class UnendingMult does Iterator {
         has $!value;
         has $!mult;
