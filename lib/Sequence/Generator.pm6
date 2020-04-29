@@ -36,14 +36,6 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method bool-only()  {  $!iterator.count-only > 1       }
     }
 
-    proto sub all-but-last(|) {*}
-    multi sub all-but-last(PredictiveIterator:D \iterator) {
-        AllButLastPredictive.new(iterator)
-    }
-    multi sub all-but-last(Iterator:D \iterator) {
-        AllButLast.new(iterator)
-    }
-
     # Return an iterator that takes a buffer and an iterator, which will
     # first produce the buffer, and then start producing values from the
     # iterator.
@@ -126,7 +118,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         }
     }
 
-#-- classes and helper subs for creating actual iterators ----------------------
+#-- classes for creating actual iterators --------------------------------------
 
     my class UnendingValue does Iterator {
         has Mu $!value;
@@ -249,21 +241,6 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         }
         method count-only() { $!todo }
         method bool-only() { nqp::hllbool($!todo) }
-    }
-
-    # Helper sub to make a nqp::list_s for 2 codepoints
-    sub cps2list_s(int $from, int $to) {
-        my int $step = $from < $to ?? 1 !! -1;
-        my int $this = $from - $step;
-
-        my $chars := nqp::list_s();
-        nqp::until(
-          nqp::iseq_i(($this = nqp::add_i($this,$step)),$to),
-          nqp::push_s($chars,nqp::chr($this))
-        );
-        nqp::push_s($chars,nqp::chr($this));
-
-        $chars
     }
 
     # Class to return an iterator for 2 strings of equal length in chars
@@ -677,19 +654,6 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               )
             )
         }
-    }
-
-    # ensure buffer containes right number of values to be passed
-    sub set-buffer-size(\buffer, int $elems) {
-        nqp::while(
-          nqp::isgt_i(nqp::elems(buffer),$elems),
-          nqp::shift(buffer)
-        );
-        nqp::while(
-          nqp::islt_i(nqp::elems(buffer),$elems),
-          nqp::unshift(buffer,Any)
-        );
-        buffer
     }
 
     # Iterator calling a lambda with last N values
@@ -1203,6 +1167,48 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
 #-- helper subs ----------------------------------------------------------------
 
+    # helper sub to get correct "all but last" iterator
+    proto sub all-but-last(|) {*}
+    multi sub all-but-last(
+      PredictiveIterator:D \iterator
+    --> PredictiveIterator:D) {
+        AllButLastPredictive.new(iterator)
+    }
+    multi sub all-but-last(Iterator:D \iterator --> Iterator:D) {
+        AllButLast.new(iterator)
+    }
+
+    # helper sub to make a nqp::list_s for 2 codepoints
+    sub cps2list_s(int $from, int $to) {
+        my int $step = $from < $to ?? 1 !! -1;
+        my int $this = $from - $step;
+
+        my $chars := nqp::list_s();
+        nqp::until(
+          nqp::iseq_i(($this = nqp::add_i($this,$step)),$to),
+          nqp::push_s($chars,nqp::chr($this))
+        );
+        nqp::push_s($chars,nqp::chr($this));
+
+        $chars
+    }
+
+    # ensure buffer containes right number of values to be passed
+    sub set-buffer-size(
+      IterationBuffer:D \buffer, int $elems
+    --> IterationBuffer:D) {
+        nqp::while(
+          nqp::isgt_i(nqp::elems(buffer),$elems),
+          nqp::shift(buffer)
+        );
+        nqp::while(
+          nqp::islt_i(nqp::elems(buffer),$elems),
+          nqp::unshift(buffer,Any)
+        );
+        buffer
+    }
+
+    # helper sub to return correct stepper iterator
     sub step-to(\value, \step, \endpoint, int $no-last --> Iterator:D) {
         step > 0
           ?? StepUpto.new(  value, step,
@@ -1210,9 +1216,6 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
           !! StepDownto.new(value, step,
                $no-last ?? endpoint - step !! endpoint)
     }
-
-    # ender version for unending sequences
-    sub no-end($ --> 0) { }
 
     # make quitting easy
     sub not-deducable(*@values) is hidden-from-backtrace {
