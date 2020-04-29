@@ -36,27 +36,6 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method bool-only()  {  $!iterator.count-only > 1       }
     }
 
-    # Return an iterator that takes a buffer and an iterator, which will
-    # first produce the buffer, and then start producing values from the
-    # iterator.
-    my class BufferIterator does Iterator {
-        has $!buffer;
-        has $!iterator;
-
-        method new(\buffer, \iterator) {
-            my $new := nqp::create(self);
-            nqp::bindattr($new,self,'$!buffer',buffer);
-            nqp::bindattr($new,self,'$!iterator',iterator);
-            $new
-        }
-        method pull-one() is raw {
-            nqp::elems($!buffer)
-              ?? nqp::shift($!buffer)
-              !! $!iterator.pull-one
-        }
-        method is-lazy() { $!iterator.is-lazy }
-    }
-
     # Return an iterator that combines two iterators
     my class TwoIterators does Iterator {
         has $!active;
@@ -967,7 +946,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
           nqp::if(
             nqp::isnull($iterator),
             nqp::if(
-              nqp::istype(pulled,Callable),
+              nqp::istype(pulled,Code),
               ($iterator := nqp::if(
                 (my $arg-count := pulled.arity || pulled.count),
                 nqp::if(
@@ -1039,13 +1018,21 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
         if nqp::eqaddr(one.WHAT,two.WHAT) {
             if nqp::istype(one,Real) {
-                (my \step := two - one)
-                  ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
-                    ?? UnendingStep.new(one, step)
-                    !! nqp::istype(endpoint,Real)
-                      ?? step-to(one, step, endpoint, $no-last)
-                      !! endpoint-mismatch(one, endpoint)
-                  !! UnendingValue.new(one)
+                if two - one -> $step {
+                    nqp::istype(endpoint,Whatever) || endpoint === Inf
+                      ?? UnendingStep.new(one, $step)
+                      !! nqp::istype(endpoint,Real)
+                        ?? step-to(one, $step, endpoint, $no-last)
+                        !! endpoint-mismatch(one, endpoint)
+                }
+                else {
+                    nqp::istype(endpoint,Whatever) || endpoint === Inf
+                      ?? TwoIterators.new(
+                           seed.iterator, UnendingStep.new(two + 1, 1))
+                      !! nqp::istype(endpoint,Real)
+                        ?? Lambda1Accepts.new(seed, * + 1, endpoint, $no-last)
+                        !! endpoint-mismatch(one, endpoint)
+                }
             }
             elsif one.succ === two {
                 nqp::istype(endpoint,Whatever) || endpoint === Inf
@@ -1066,17 +1053,27 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                     !! endpoint-mismatch(one, endpoint)
             }
             elsif one === two {
-                UnendingValue.new(one)
+                nqp::istype(endpoint,Whatever) || endpoint === Inf
+                  ?? Lambda1.new(seed, *.succ, $no-last)
+                  !! nqp::istype(two,endpoint.WHAT)
+                    ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
+                    !! endpoint-mismatch(one, endpoint)
             }
             elsif nqp::istype(endpoint,Whatever) || endpoint === Inf {
-                BufferIterator.new(seed, UnendingSucc.new(two.succ))
+                TwoIterators.new(seed.iterator, UnendingSucc.new(two.succ))
             }
             else {
                 not-deducable(one,two)
             }
         }
+
+        # not same type
         else {
-            not-deducable(one,two)
+            nqp::istype(endpoint,Whatever) || endpoint === Inf
+              ?? TwoIterators.new(seed.iterator, UnendingSucc.new(two.succ))
+              !! nqp::istype(two.WHAT,endpoint.WHAT)
+                ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
+                !! endpoint-mismatch(two, endpoint)
         }
     }
 
@@ -1097,60 +1094,57 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
             # arithmetic sequence
             if three - two == $step {
+                $step := 1 unless $step;
                 nqp::istype(endpoint,Whatever) || endpoint === Inf
-                  ?? TwoIterators.new(
-                       seed.iterator, UnendingStep.new(three + $step, $step))
+                  ?? TwoIterators.new(seed.iterator,
+                       UnendingStep.new(three + $step, $step))
                   !! nqp::istype(endpoint,Real)
                     ?? Lambda1Accepts.new(seed, * + $step,
-                         $step > 0 ?? * >= endpoint !! * <= endpoint, $no-last)
-                    !! nqp::istype(endpoint,Callable)
-                      ?? Lambda1Accepts.new(seed, * + $step, endpoint, $no-last)
+                         step-endpoint($step, endpoint), $no-last)
+                    !! nqp::istype(endpoint,Code)
+                      ?? Lambda1Accepts.new(seed, * + $step,
+                           endpoint, $no-last)
                       !! endpoint-mismatch(seed, endpoint)
             }
 
-            # something to check still
-            elsif one || two || three {
+            # potential geometric sequence
+            elsif one && two && three {
                 my $mult := (two / one).narrow;
                 three / two == $mult
                   ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
                     ?? Lambda1.new(seed, * * $mult, $no-last)
                     !! nqp::istype(endpoint,Real)
-                         || nqp::istype(endpoint,Callable)
-                      ?? Lambda1Accepts.new(seed,* * $mult,endpoint,$no-last)
-                      !! endpoint-mismatch(seed, endpoint)
-                  !! nqp::istype(endpoint,Whatever) || endpoint === Inf
-                    ?? TwoIterators.new(
-                         seed.iterator, UnendingStep.new(three + 1, 1))
-                    !! nqp::istype(endpoint,Real)
-                         || nqp::istype(endpoint,Callable)
-                      ?? Lambda1Accepts.new(seed, * + 1, endpoint, $no-last)
-                      !! endpoint-mismatch(seed, endpoint)
+                      ?? Lambda1Accepts.new(seed,* * $mult,
+                           mult-endpoint($mult, endpoint), $no-last)
+                      !! nqp::istype(endpoint,Code)
+                        ?? Lambda1Accepts.new(seed,* * $mult,endpoint,$no-last)
+                        !! endpoint-mismatch(seed, endpoint)
+                  !! not-deducable(one,two,three)
             }
             else {
                 not-deducable(one,two,three)
             }
         }
 
-        # all the same type
-        elsif nqp::eqaddr(one.WHAT,two.WHAT)
-          && nqp::eqaddr(two.WHAT,three.WHAT) {
-
-            # string always .succ or other classes that don't add up
-            if nqp::istype(one,Str)
-              || try { $step := two - one } === Nil {
-                BufferIterator.new(seed, UnendingSucc.new(three.succ))
-            }
-
-            # classes that can add up
-            else {
-                three - two === $step
-                  ?? BufferIterator.new(
-                       seed, UnendingStep.new(three + $step, $step))
-                  !! not-deducable(one,two,three);
-            }
+        # just .succ on the last value in the seed
+        elsif nqp::istype(three,Str) || (try $step := two - one) === Nil {
+            nqp::istype(endpoint,Whatever) || endpoint === Inf
+              ?? TwoIterators.new(seed.iterator, UnendingSucc.new(three.succ))
+              !! nqp::istype(three.WHAT,endpoint.WHAT)
+                ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
+                !! endpoint-mismatch(three, endpoint)
         }
+
+        # classes that can add up
         else {
-            not-deducable(one,two,three);
+            (try three - two === $step)
+              ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
+                ?? TwoIterators.new(
+                     seed.iterator, UnendingStep.new(three + $step, $step))
+                !! nqp::istype(three.WHAT,endpoint.WHAT)
+                  ?? Lambda1Accepts.new(seed, * + $step, endpoint, $no-last)
+                  !! endpoint-mismatch(three, endpoint)
+              !! not-deducable(one,two,three);
         }
     }
 
@@ -1208,13 +1202,19 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         buffer
     }
 
-    # helper sub to return correct stepper iterator
-    sub step-to(\value, \step, \endpoint, int $no-last --> Iterator:D) {
+    # helper sub to return correct stepper ender
+    sub step-endpoint(\step, \endpoint) {
+        step > 0 ?? * >= endpoint !! * <= endpoint
+    }
+    sub mult-endpoint(\mult, \endpoint) {
+        mult > 0 ?? * >= endpoint !! * <= endpoint
+    }
+
+    # helper sub to rteurn correct stepper iterator
+    sub step-to(\value, \step, \end, int $no-last --> Iterator:D) {
         step > 0
-          ?? StepUpto.new(  value, step,
-               $no-last ?? endpoint - step !! endpoint)
-          !! StepDownto.new(value, step,
-               $no-last ?? endpoint - step !! endpoint)
+          ?? StepUpto.new(  value, step, $no-last ?? end - step !! end)
+          !! StepDownto.new(value, step, $no-last ?? end - step !! end)
     }
 
     # make quitting easy
@@ -1311,8 +1311,8 @@ has been changed to ending the sequence.
 
 =head2 No longer silently ignores values on LHS after Callable
 
-The original implementation of the C<...> would ignore any values B<after>
-a Callable on the LHS, e.g.:
+The original implementation of the C<...> operator would ignore any values
+B<after> a Callable on the LHS, e.g.:
 
    1,2,3, * + 1, 7,8,9 ... 100;
 
@@ -1320,12 +1320,58 @@ This now dies.
 
 =head2 No longer silently ignores values with RHS list starting with *
 
-The original implementation of the C<...> would ignore any values B<after>
-a Whatever as the first element of a list on the RHS, e.g.:
+The original implementation of the C<...> operator would ignore any values
+B<after> a Whatever as the first element of a list on the RHS, e.g.:
 
-   1,2,3 ... *,42,666
+   1,2,3 ... *,42,666;
 
 This now dies.
+
+=head2 LHS list with different types must have matching endpoint
+
+The original implementation of the C<...> operator would try to smart-match
+the endpoint value with the final value on the LHS.  If the types of that
+final value and the endpoint do not smartmatch, then the values of the
+final value and the endpoint will most likely also never smartmatch, e.g.:
+
+   "a",1 ... "c";
+
+would never stop producing values.  This now dies.
+
+=head2 LHS of identical values now assumes implicit .succ
+
+The original implementation of the C<...> operator would produce unexplicable
+results if the 2 or the last 3 values of the LHS list would contain the
+same values.  This is now made more consistent, by assuming C<.succ> to be
+applied on the last value of the LHS list, and apply the normal endpoint
+rules.  So:
+
+    1,1 ... *;            # 1 1 2 3 4 5 etc.
+
+    1,1,1 ... *;          # 1 1 1 2 3 4 etc.
+
+    1,1 ... 5;            # 1 1 2 3 4 5
+
+    1,1,1 ... 5;          # 1 1 1 2 3 4 5
+
+    1,1 ... 1;            # 1
+
+    1,1,1 ... 1;          # 1
+
+    1,1 ... 0;            #
+
+    1,1,1 ... 0;          #
+
+    "c","c" ... *;        # c c d e f g h i etc.
+
+    "c","c","c" ... *;    # c c c d e f g h etc.
+
+    "c","c" ... "g";      # c c d e f g
+
+    "c","c","c" ... "g";  # c c c d e f g
+
+
+=head1 Non-stepping elucidation
 
 =head1 AUTHOR
 

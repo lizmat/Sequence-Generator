@@ -177,11 +177,17 @@ my @tests = (
   'constant sequence started with letter and no arg closure',
     ('c', -> {42}), *, ('c',|(42 xx 9)),
 
-  'constant sequence started with two numbers',
-    (1,1), *, 1 xx 10,
+  'constant sequence started with two numbers, whatever endpoint',
+    (1,1), *, (1,1,2,3,4,5,6,7,8,9),
 
-  'constant sequence started with three numbers',
-    (1,1,1), *, 1 xx 10,
+  'constant sequence started with two numbers, higher endpoint',
+    (1,1), 5, (1,1,2,3,4,5),
+
+  'constant sequence started with three numbers, whatever endpoint',
+    (1,1,1), *, (1,1,1,2,3,4,5,6,7,8),
+
+  'constant sequence started with three numbers, higher endpoint',
+    (1,1,1), 5, (1,1,1,2,3,4,5),
 
   'alternating False and True',
     (False,&prefix:<!>), *, |(False,True) xx 5,
@@ -294,8 +300,17 @@ my @tests = (
   'simple decreasing additive sequence with two items on the LHS',
     (1,0), -3.5, (1,0,-1,-2,-3),
 
-  'constant sequence started with two letters',
-    ('c','c'), *, 'c' xx 10,
+  'constant sequence started with two letters, whatever endpoint',
+    <c c>, *, <c c d e f g h i j k>,
+
+  'constant sequence started with two letters, higher endpoint',
+    <c c>, "e", <c c d e>,
+
+  'constant sequence started with three letters, whatever endpoint',
+    <c c c>, *, <c c c d e f g h i j>,
+
+  'constant sequence started with three letters, higher endpoint',
+    <c c c>, "e", <c c c d e>,
 
   'no more: limit value is on the wrong side',
     (1,2), 0, (),
@@ -318,9 +333,6 @@ my @tests = (
   'simple geometric sequence of Nums',
     (1e0,2e0,4e0), 64, (1e0,2e0,4e0,8e0,16e0,32e0,64e0),
 
-  'decreasing multiplicative sequence with three items on the LHS',
-    (81,27,9), 1, (81,27,9,3.0,1.0),
-
   'sequence started with three identical numbers, but then goes arithmetic',
     (1,1,1,2,3), 7, (1,1,1,2,3,4,5,6,7),
 
@@ -330,11 +342,26 @@ my @tests = (
   'geometric sequence started in one direction and continues in the other',
     (4,2,1,2,4), 16, (4,2,1,2,4,8,16),
 
-  'geometric sequence that never reaches its limit',
-    (1,1/2,1/4), 0, (1,1/2,1/4,1/8,1/16,1/32,1/64,1/128,1/256,1/512),
+  'mixed types with 2 starters',
+    (1,"a"), "d", (1,"a","b","c","d"),
 
-  'alternating geometric sequence that never reaches its limit',
-    (1,-1/2,1/4), 0, (1,-1/2,1/4,-1/8,1/16,-1/32,1/64,-1/128,1/256,-1/512),
+  'mixed types with 3 starters',
+    (1,2,"a"), "d", (1,2,"a","b","c","d"),
+
+  'no steppers, with 2 values, real, higher endpoint',
+    (1,1), 5, (1,1,2,3,4,5),
+
+  'no steppers, with 3 values, real, higher endpoint',
+    (1,1,1), 5, (1,1,1,2,3,4,5),
+
+#  'decreasing multiplicative sequence with three items on the LHS',
+#    (81,27,9), 1, (81,27,9,3.0,1.0),
+
+#  'geometric sequence that never reaches its limit',
+#    (1,1/2,1/4), 0, (1,1/2,1/4,1/8,1/16,1/32,1/64,1/128,1/256,1/512),
+
+#  'alternating geometric sequence that never reaches its limit',
+#    (1,-1/2,1/4), 0, (1,-1/2,1/4,-1/8,1/16,-1/32,1/64,-1/128,1/256,-1/512),
 
 #  '0-ary generator output can be slipped from the start',
 #     -> {slip 'zero','one'}, *, <zero one zero one zero one zero one zero one>,

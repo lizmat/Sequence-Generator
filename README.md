@@ -50,7 +50,7 @@ The original implementation of the `...` operator would die if `.pred` was being
 No longer silently ignores values on LHS after Callable
 -------------------------------------------------------
 
-The original implementation of the `...` would ignore any values **after** a Callable on the LHS, e.g.:
+The original implementation of the `...` operator would ignore any values **after** a Callable on the LHS, e.g.:
 
     1,2,3, * + 1, 7,8,9 ... 100;
 
@@ -59,11 +59,52 @@ This now dies.
 No longer silently ignores values with RHS list starting with *
 ---------------------------------------------------------------
 
-The original implementation of the `...` would ignore any values **after** a Whatever as the first element of a list on the RHS, e.g.:
+The original implementation of the `...` operator would ignore any values **after** a Whatever as the first element of a list on the RHS, e.g.:
 
-    1,2,3 ... *,42,666
+    1,2,3 ... *,42,666;
 
 This now dies.
+
+LHS list with different types must have matching endpoint
+---------------------------------------------------------
+
+The original implementation of the `...` operator would try to smart-match the endpoint value with the final value on the LHS. If the types of that final value and the endpoint do not smartmatch, then the values of the final value and the endpoint will most likely also never smartmatch, e.g.:
+
+    "a",1 ... "c";
+
+would never stop producing values. This now dies.
+
+LHS of identical values now assumes implicit .succ
+--------------------------------------------------
+
+The original implementation of the `...` operator would produce unexplicable results if the 2 or the last 3 values of the LHS list would contain the same values. This is now made more consistent, by assuming `.succ` to be applied on the last value of the LHS list, and apply the normal endpoint rules. So:
+
+    1,1 ... *;            # 1 1 2 3 4 5 etc.
+
+    1,1,1 ... *;          # 1 1 1 2 3 4 etc.
+
+    1,1 ... 5;            # 1 1 2 3 4 5
+
+    1,1,1 ... 5;          # 1 1 1 2 3 4 5
+
+    1,1 ... 1;            # 1
+
+    1,1,1 ... 1;          # 1
+
+    1,1 ... 0;            #
+
+    1,1,1 ... 0;          #
+
+    "c","c" ... *;        # c c d e f g h i etc.
+
+    "c","c","c" ... *;    # c c c d e f g h etc.
+
+    "c","c" ... "g";      # c c d e f g
+
+    "c","c","c" ... "g";  # c c c d e f g
+
+Non-stepping elucidation
+========================
 
 AUTHOR
 ======
