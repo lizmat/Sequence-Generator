@@ -74,37 +74,15 @@ The original implementation of the `...` operator would try to smart-match the e
 
 would never stop producing values. This now dies.
 
-LHS of identical values now assumes implicit .succ
---------------------------------------------------
+Elucidation of LHS with identical values now fail
+-------------------------------------------------
 
-The original implementation of the `...` operator would produce unexplicable results if the 2 or the last 3 values of the LHS list would contain the same values. This is now made more consistent, by assuming `.succ` to be applied on the last value of the LHS list, and apply the normal endpoint rules. So:
+The original implementation of the `...` operator would produce unexplicable results if the 2 or the last 3 values of the LHS list would contain the same values. This will now die.
 
-    1,1 ... *;            # 1 1 2 3 4 5 etc.
+Mixed types in LHS will now fail
+--------------------------------
 
-    1,1,1 ... *;          # 1 1 1 2 3 4 etc.
-
-    1,1 ... 5;            # 1 1 2 3 4 5
-
-    1,1,1 ... 5;          # 1 1 1 2 3 4 5
-
-    1,1 ... 1;            # 1
-
-    1,1,1 ... 1;          # 1
-
-    1,1 ... 0;            #
-
-    1,1,1 ... 0;          #
-
-    "c","c" ... *;        # c c d e f g h i etc.
-
-    "c","c","c" ... *;    # c c c d e f g h etc.
-
-    "c","c" ... "g";      # c c d e f g
-
-    "c","c","c" ... "g";  # c c c d e f g
-
-Non-stepping elucidation
-========================
+The original implementation of the `...` operator would produce `.succ` sequences if elucidation of a LHS contained mixed types. This will now die.
 
 AUTHOR
 ======

@@ -1018,40 +1018,48 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
         nqp::eqaddr(one.WHAT,two.WHAT)
           ?? nqp::istype(one,Real)
+
+            # numeric sequence
             ?? (my \step := two - one)
               ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
                 ?? UnendingStep.new(one, step)
                 !! nqp::istype(endpoint,Real)
                   ?? step-to(one, step, endpoint, $no-last)
                   !! endpoint-mismatch(one, endpoint)
-              !! not-deducable(one,two)  # no direction
-            !! one.succ === two
-              ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
-                ?? UnendingSucc.new(one)
-                !! nqp::istype(endpoint,one.WHAT)
-                  ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
-                  !! endpoint-mismatch(one, endpoint)
-              !! two.succ === one
+              !! not-deducible(one,two)  # no direction
+
+
+            # short-cut not deducible
+            !! one === two
+              ?? not-deducible(one,two)
+
+              # potential .succ sequence
+              !! one.succ === two
+
+                # .succ sequence
                 ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
-                  ?? UnendingPred.new(one)
+                  ?? UnendingSucc.new(one)
                   !! nqp::istype(endpoint,one.WHAT)
-                    ?? Lambda1Accepts.new(seed, {
-                         nqp::istype((my \value := .pred),Failure)
-                           ?? (last)
-                           !! value
-                       }, endpoint, $no-last)
+                    ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
                     !! endpoint-mismatch(one, endpoint)
-                !! one === two
-                  ?? not-deducable(one,two)
-                  !! nqp::istype(endpoint,Whatever) || endpoint === Inf
-                    ?? TwoIterators.new(seed.iterator,
-                         UnendingSucc.new(two.succ))
-                    !! not-deducable(one,two)
-          !! nqp::istype(endpoint,Whatever) || endpoint === Inf
-            ?? TwoIterators.new(seed.iterator, UnendingSucc.new(two.succ))
-            !! nqp::istype(two.WHAT,endpoint.WHAT)
-              ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
-              !! endpoint-mismatch(two, endpoint)
+
+                # potential .pred sequence
+                !! two.succ === one
+
+                  # .pred sequence
+                  ?? nqp::istype(endpoint,Whatever) || endpoint === -Inf
+                    ?? UnendingPred.new(one)
+                    !! nqp::istype(endpoint,one.WHAT)
+                      ?? Lambda1Accepts.new(seed, {
+                           nqp::istype((my \value := .pred),Failure)
+                             ?? (last)
+                             !! value
+                         }, endpoint, $no-last)
+                      !! endpoint-mismatch(one, endpoint)
+
+          # alas, no go
+                  !! not-deducible(one,two)
+          !! not-deducible(one,two)
     }
 
     method !elucidateN(
@@ -1061,68 +1069,46 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         my \one   := nqp::atpos(seed,$elems - 3);
         my \two   := nqp::atpos(seed,$elems - 2);
         my \three := nqp::atpos(seed,$elems - 1);
-        my $step;
 
-        # all can be considered numerical
-        if nqp::istype(one.WHAT,Real)
+        nqp::istype(one.WHAT,Real)
           && nqp::istype(two.WHAT,Real)
-          && nqp::istype(three.WHAT,Real) {
-            $step := two - one;
-
+          && nqp::istype(three.WHAT,Real)
+          ?? (my \step := two - one) == three - two
+            
             # arithmetic sequence
-            if three - two == $step {
-                $step := 1 unless $step;
-                nqp::istype(endpoint,Whatever) || endpoint === Inf
-                  ?? TwoIterators.new(seed.iterator,
-                       UnendingStep.new(three + $step, $step))
-                  !! nqp::istype(endpoint,Real)
-                    ?? Lambda1Accepts.new(seed, * + $step,
-                         step-endpoint($step, endpoint), $no-last)
-                    !! nqp::istype(endpoint,Code)
-                      ?? Lambda1Accepts.new(seed, * + $step,
-                           endpoint, $no-last)
-                      !! endpoint-mismatch(seed, endpoint)
-            }
+            ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
+              ?? TwoIterators.new(seed.iterator,
+                   UnendingStep.new(three + step, step))
+              !! nqp::istype(endpoint,Real)
+                ?? Lambda1Accepts.new(seed, * + step,
+                     step-endpoint(step, endpoint), $no-last)
+                !! nqp::istype(endpoint,Code)
+                  ?? Lambda1Accepts.new(seed, * + step,
+                       endpoint, $no-last)
+                  !! endpoint-mismatch(seed, endpoint)
 
-            # potential geometric sequence
-            elsif one && two && three {
-                my $mult := (two / one).narrow;
-                three / two == $mult
-                  ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
-                    ?? Lambda1.new(seed, * * $mult, $no-last)
-                    !! nqp::istype(endpoint,Real)
-                      ?? Lambda1Accepts.new(seed,* * $mult,
-                           mult-endpoint($mult, endpoint), $no-last)
-                      !! nqp::istype(endpoint,Code)
-                        ?? Lambda1Accepts.new(seed,* * $mult,endpoint,$no-last)
-                        !! endpoint-mismatch(seed, endpoint)
-                  !! not-deducable(one,two,three)
-            }
-            else {
-                not-deducable(one,two,three)
-            }
-        }
+            # numbers, but not an arithmetic sequence
+            !! (one && two && three)
+                 && (my \mult := (two / one).narrow) == three / two
 
-        # just .succ on the last value in the seed
-        elsif nqp::istype(three,Str) || (try $step := two - one) === Nil {
-            nqp::istype(endpoint,Whatever) || endpoint === Inf
-              ?? TwoIterators.new(seed.iterator, UnendingSucc.new(three.succ))
-              !! nqp::istype(three.WHAT,endpoint.WHAT)
-                ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
-                !! endpoint-mismatch(three, endpoint)
-        }
-
-        # classes that can add up
-        else {
-            (try three - two === $step)
+              # geometric sequence
               ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
-                ?? TwoIterators.new(
-                     seed.iterator, UnendingStep.new(three + $step, $step))
-                !! nqp::istype(three.WHAT,endpoint.WHAT)
-                  ?? Lambda1Accepts.new(seed, * + $step, endpoint, $no-last)
-                  !! endpoint-mismatch(three, endpoint)
-              !! not-deducable(one,two,three);
-        }
+                ?? Lambda1.new(seed, * * mult, $no-last)
+                !! nqp::istype(endpoint,Real)
+                  ?? Lambda1Accepts.new(seed,* * mult,
+                       mult-endpoint(mult, endpoint), $no-last)
+                  !! nqp::istype(endpoint,Code)
+                    ?? Lambda1Accepts.new(seed,* * mult,endpoint,$no-last)
+                    !! endpoint-mismatch(seed, endpoint)
+              !! not-deducible(one,two,three)
+
+          # not all numeric, so simple .succ
+          !! nqp::istype(endpoint,Whatever) || endpoint === Inf
+            ?? TwoIterators.new(seed.iterator, UnendingSucc.new(three.succ))
+            !! nqp::istype(three.WHAT,endpoint.WHAT)
+                 || nqp::istype(endpoint,Code)
+              ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
+              !! endpoint-mismatch(three, endpoint)
     }
 
     # take seed / endpoint / and turn it into an iterator
@@ -1195,7 +1181,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     }
 
     # make quitting easy
-    sub not-deducable(*@values) is hidden-from-backtrace {
+    sub not-deducible(*@values) is hidden-from-backtrace {
         X::Sequence::Deduction.new(from => @values>>.raku.join(",")).throw
     }
     sub endpoint-mismatch(\from,\endpoint) is hidden-from-backtrace {
@@ -1315,40 +1301,16 @@ final value and the endpoint will most likely also never smartmatch, e.g.:
 
 would never stop producing values.  This now dies.
 
-=head2 LHS of identical values now assumes implicit .succ
+=head2 Elucidation of LHS with identical values now fail
 
 The original implementation of the C<...> operator would produce unexplicable
 results if the 2 or the last 3 values of the LHS list would contain the
-same values.  This is now made more consistent, by assuming C<.succ> to be
-applied on the last value of the LHS list, and apply the normal endpoint
-rules.  So:
+same values.  This will now die.
 
-    1,1 ... *;            # 1 1 2 3 4 5 etc.
+=head2 Mixed types in LHS will now fail
 
-    1,1,1 ... *;          # 1 1 1 2 3 4 etc.
-
-    1,1 ... 5;            # 1 1 2 3 4 5
-
-    1,1,1 ... 5;          # 1 1 1 2 3 4 5
-
-    1,1 ... 1;            # 1
-
-    1,1,1 ... 1;          # 1
-
-    1,1 ... 0;            #
-
-    1,1,1 ... 0;          #
-
-    "c","c" ... *;        # c c d e f g h i etc.
-
-    "c","c","c" ... *;    # c c c d e f g h etc.
-
-    "c","c" ... "g";      # c c d e f g
-
-    "c","c","c" ... "g";  # c c c d e f g
-
-
-=head1 Non-stepping elucidation
+The original implementation of the C<...> operator would produce C<.succ>
+sequences if elucidation of a LHS contained mixed types.  This will now die.
 
 =head1 AUTHOR
 

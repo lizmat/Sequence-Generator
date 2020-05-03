@@ -318,12 +318,6 @@ my @tests = (
   'geometric sequence started in one direction and continues in the other',
     (4,2,1,2,4), 16, (4,2,1,2,4,8,16),
 
-  'mixed types with 2 starters',
-    (1,"a"), "d", (1,"a","b","c","d"),
-
-  'mixed types with 3 starters',
-    (1,2,"a"), "d", (1,2,"a","b","c","d"),
-
 #  'decreasing multiplicative sequence with three items on the LHS',
 #    (81,27,9), 1, (81,27,9,3.0,1.0),
 
