@@ -1016,33 +1016,23 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         my \one := nqp::atpos(seed,0);
         my \two := nqp::atpos(seed,1);
 
-        if nqp::eqaddr(one.WHAT,two.WHAT) {
-            if nqp::istype(one,Real) {
-                if two - one -> $step {
-                    nqp::istype(endpoint,Whatever) || endpoint === Inf
-                      ?? UnendingStep.new(one, $step)
-                      !! nqp::istype(endpoint,Real)
-                        ?? step-to(one, $step, endpoint, $no-last)
-                        !! endpoint-mismatch(one, endpoint)
-                }
-                else {
-                    nqp::istype(endpoint,Whatever) || endpoint === Inf
-                      ?? TwoIterators.new(
-                           seed.iterator, UnendingStep.new(two + 1, 1))
-                      !! nqp::istype(endpoint,Real)
-                        ?? Lambda1Accepts.new(seed, * + 1, endpoint, $no-last)
-                        !! endpoint-mismatch(one, endpoint)
-                }
-            }
-            elsif one.succ === two {
-                nqp::istype(endpoint,Whatever) || endpoint === Inf
-                  ?? UnendingSucc.new(one)
-                  !! nqp::istype(endpoint,one.WHAT)
-                    ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
-                    !! endpoint-mismatch(one, endpoint)
-            }
-            elsif two.succ === one {
-                nqp::istype(endpoint,Whatever) || endpoint === Inf
+        nqp::eqaddr(one.WHAT,two.WHAT)
+          ?? nqp::istype(one,Real)
+            ?? (my \step := two - one)
+              ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
+                ?? UnendingStep.new(one, step)
+                !! nqp::istype(endpoint,Real)
+                  ?? step-to(one, step, endpoint, $no-last)
+                  !! endpoint-mismatch(one, endpoint)
+              !! not-deducable(one,two)  # no direction
+            !! one.succ === two
+              ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
+                ?? UnendingSucc.new(one)
+                !! nqp::istype(endpoint,one.WHAT)
+                  ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
+                  !! endpoint-mismatch(one, endpoint)
+              !! two.succ === one
+                ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
                   ?? UnendingPred.new(one)
                   !! nqp::istype(endpoint,one.WHAT)
                     ?? Lambda1Accepts.new(seed, {
@@ -1051,30 +1041,17 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                            !! value
                        }, endpoint, $no-last)
                     !! endpoint-mismatch(one, endpoint)
-            }
-            elsif one === two {
-                nqp::istype(endpoint,Whatever) || endpoint === Inf
-                  ?? Lambda1.new(seed, *.succ, $no-last)
-                  !! nqp::istype(two,endpoint.WHAT)
-                    ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
-                    !! endpoint-mismatch(one, endpoint)
-            }
-            elsif nqp::istype(endpoint,Whatever) || endpoint === Inf {
-                TwoIterators.new(seed.iterator, UnendingSucc.new(two.succ))
-            }
-            else {
-                not-deducable(one,two)
-            }
-        }
-
-        # not same type
-        else {
-            nqp::istype(endpoint,Whatever) || endpoint === Inf
-              ?? TwoIterators.new(seed.iterator, UnendingSucc.new(two.succ))
-              !! nqp::istype(two.WHAT,endpoint.WHAT)
-                ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
-                !! endpoint-mismatch(two, endpoint)
-        }
+                !! one === two
+                  ?? not-deducable(one,two)
+                  !! nqp::istype(endpoint,Whatever) || endpoint === Inf
+                    ?? TwoIterators.new(seed.iterator,
+                         UnendingSucc.new(two.succ))
+                    !! not-deducable(one,two)
+          !! nqp::istype(endpoint,Whatever) || endpoint === Inf
+            ?? TwoIterators.new(seed.iterator, UnendingSucc.new(two.succ))
+            !! nqp::istype(two.WHAT,endpoint.WHAT)
+              ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
+              !! endpoint-mismatch(two, endpoint)
     }
 
     method !elucidateN(
