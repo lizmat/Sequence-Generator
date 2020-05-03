@@ -68,12 +68,17 @@ This now dies.
 LHS elucidation should always have identical types
 --------------------------------------------------
 
-This implementation requires all values for sequence elucidation (either 2 elements on the left, or the last three of three or more values) to be of the same type. If they are not, the elucidation will fail. This behaviour makes quite a few edge cases fail that the original implementation of the `...` operator would try to make sense of.
+This implementation requires all values for sequence elucidation (either 2 elements on the left, or the last three of three or more values) to be either all Real, or of the same type. If they are not, the elucidation will fail. This behaviour makes quite a few edge cases fail that the original implementation of the `...` operator would try to make sense of.
 
 Elucidation of LHS with identical values now fail
 -------------------------------------------------
 
 The original implementation of the `...` operator would produce unexplicable results if the 2 or the last 3 values of the LHS list would contain the same values. This will now die.
+
+Multiplication factor must be positive
+--------------------------------------
+
+In elucidation, any multiplication factor found must be positive. Negative multiplication factors are too magic with regards to determine when the sequence must be ended. Please use a WhateverCode (e.g. `* * -1`) to indicate a negative multiplication factor.
 
 AUTHOR
 ======

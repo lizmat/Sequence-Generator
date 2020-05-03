@@ -318,14 +318,11 @@ my @tests = (
   'geometric sequence started in one direction and continues in the other',
     (4,2,1,2,4), 16, (4,2,1,2,4,8,16),
 
-#  'decreasing multiplicative sequence with three items on the LHS',
-#    (81,27,9), 1, (81,27,9,3.0,1.0),
+  'decreasing multiplicative sequence with three items on the LHS',
+    (81,27,9), 1, (81,27,9,3.0,1.0),
 
-#  'geometric sequence that never reaches its limit',
-#    (1,1/2,1/4), 0, (1,1/2,1/4,1/8,1/16,1/32,1/64,1/128,1/256,1/512),
-
-#  'alternating geometric sequence that never reaches its limit',
-#    (1,-1/2,1/4), 0, (1,-1/2,1/4,-1/8,1/16,-1/32,1/64,-1/128,1/256,-1/512),
+  'geometric sequence that never reaches its limit',
+    (1,1/2,1/4), 0, (1,1/2,1/4,1/8,1/16,1/32,1/64,1/128,1/256,1/512),
 
 #  '0-ary generator output can be slipped from the start',
 #     -> {slip 'zero','one'}, *, <zero one zero one zero one zero one zero one>,
@@ -359,18 +356,6 @@ my @tests = (
 
 #  'decreasing multiplicative sequence with three items on the LHS',
 #    (81,27,9), 8/9, [(81,27.0,9.0,3.0,1.0) xx 2,(27.0,9.0,3.0,1.0) xx 2],
-
-#  'constant sequence started with three letters',
-#    ('c','c','c'), *, 'c' xx 10,
-
-#  'simple sequence with two further terms on the RHS',
-#    1, (*,6,7), 1..10,
-
-#  'simple sequence with two extra terms on the RHS',
-#    1, (*,4,3), 1..10,
-
-#  'simple sequence with two weird items on the RHS',
-#    1, (*,"foo","bar"), 1..10,
 
 #  '-3 ... ^3 produces just one zero',
 #    -3, ^3, [(-3,-2,-1,0,1,2),(-3,-2,-1,1,2),(-2,-1,0,1,2),(-2,-1,1,2)],
