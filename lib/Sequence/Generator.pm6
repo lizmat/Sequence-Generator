@@ -379,7 +379,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             nqp::bindattr($new,self,'$!producer',producer);
             $no-last ?? all-but-last($new) !! $new
         }
-        method pull-one() is raw { 
+        method pull-one() is raw {
             my $result;
             nqp::if(
               nqp::isnull($!slipping),
@@ -418,7 +418,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             nqp::bindattr_i($new,self,'$!no-last',$no-last);
             $new
         }
-        method pull-one() is raw { 
+        method pull-one() is raw {
             my $result;
             nqp::if(
               nqp::isnull($!slipping),
@@ -464,7 +464,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             nqp::bindattr($new,self,'$!producer',producer);
             $no-last ?? all-but-last($new) !! $new
         }
-        method pull-one() is raw { 
+        method pull-one() is raw {
             my $result;
             $!value := nqp::if(
               nqp::isnull($!slipping),
@@ -504,7 +504,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             nqp::bindattr_i($new,self,'$!no-last',$no-last);
             $new
         }
-        method pull-one() is raw { 
+        method pull-one() is raw {
             my $result;
             nqp::if(
               nqp::isnull($!slipping),
@@ -553,7 +553,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             nqp::bindattr($new,self,'$!producer',producer);
             $no-last ?? all-but-last($new) !! $new
         }
-        method pull-one() is raw { 
+        method pull-one() is raw {
             my $result;
             nqp::if(
               nqp::isnull($!slipping),
@@ -595,7 +595,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             nqp::bindattr_i($new,self,'$!no-last',$no-last);
             $new
         }
-        method pull-one() is raw { 
+        method pull-one() is raw {
             my $result;
             nqp::if(
               nqp::isnull($!slipping),
@@ -1070,45 +1070,64 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         my \two   := nqp::atpos(seed,$elems - 2);
         my \three := nqp::atpos(seed,$elems - 1);
 
-        nqp::istype(one.WHAT,Real)
-          && nqp::istype(two.WHAT,Real)
-          && nqp::istype(three.WHAT,Real)
-          ?? (my \step := two - one) == three - two
-            
+        nqp::eqaddr(one.WHAT,two.WHAT) && nqp::eqaddr(two.WHAT,three.WHAT)
+
+          # all same type
+          ?? nqp::istype(one.WHAT,Real)
+
             # arithmetic sequence
-            ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
-              ?? TwoIterators.new(seed.iterator,
-                   UnendingStep.new(three + step, step))
-              !! nqp::istype(endpoint,Real)
-                ?? Lambda1Accepts.new(seed, * + step,
-                     step-endpoint(step, endpoint), $no-last)
-                !! nqp::istype(endpoint,Code)
-                  ?? Lambda1Accepts.new(seed, * + step,
-                       endpoint, $no-last)
-                  !! endpoint-mismatch(seed, endpoint)
-
-            # numbers, but not an arithmetic sequence
-            !! (one && two && three)
-                 && (my \mult := (two / one).narrow) == three / two
-
-              # geometric sequence
+            ?? (my \step := two - one) == three - two
               ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
-                ?? Lambda1.new(seed, * * mult, $no-last)
+                ?? TwoIterators.new(seed.iterator,
+                     UnendingStep.new(three + step, step))
                 !! nqp::istype(endpoint,Real)
-                  ?? Lambda1Accepts.new(seed,* * mult,
-                       mult-endpoint(mult, endpoint), $no-last)
+                  ?? Lambda1Accepts.new(seed, * + step,
+                       step-endpoint(step, endpoint), $no-last)
                   !! nqp::istype(endpoint,Code)
-                    ?? Lambda1Accepts.new(seed,* * mult,endpoint,$no-last)
+                    ?? Lambda1Accepts.new(seed, * + step, endpoint, $no-last)
                     !! endpoint-mismatch(seed, endpoint)
-              !! not-deducible(one,two,three)
 
-          # not all numeric, so simple .succ
-          !! nqp::istype(endpoint,Whatever) || endpoint === Inf
-            ?? TwoIterators.new(seed.iterator, UnendingSucc.new(three.succ))
-            !! nqp::istype(three.WHAT,endpoint.WHAT)
-                 || nqp::istype(endpoint,Code)
-              ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
-              !! endpoint-mismatch(three, endpoint)
+              # numbers, but not an arithmetic sequence
+              !! one && two && three
+                   && (my \mult := (two / one).narrow) == three / two
+
+                # geometric sequence
+                ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
+                  ?? Lambda1.new(seed, * * mult, $no-last)
+                  !! nqp::istype(endpoint,Real)
+                    ?? Lambda1Accepts.new(seed,* * mult,
+                         mult-endpoint(mult, endpoint), $no-last)
+                    !! nqp::istype(endpoint,Code)
+                      ?? Lambda1Accepts.new(seed,* * mult,endpoint,$no-last)
+                      !! endpoint-mismatch(seed, endpoint)
+                !! not-deducible(one,two,three)
+
+            # all same type, but not numeric
+            !! one.succ === two && two.succ === three
+
+              # simple .succ
+              ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
+                ?? TwoIterators.new(seed.iterator,
+                     UnendingSucc.new(three.succ))
+                !! nqp::istype(three.WHAT,endpoint.WHAT)
+                     || nqp::istype(endpoint,Code)
+                  ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
+                  !! endpoint-mismatch(three, endpoint)
+
+              # not a simple .succ
+              !! two.succ === one && three.succ === two
+
+                # simple .pred
+                ?? nqp::istype(endpoint,Whatever) || endpoint === -Inf
+                  ?? Lambda1.new(seed, *.pred, $no-last)
+                  !! nqp::istype(three.WHAT,endpoint.WHAT)
+                       || nqp::istype(endpoint,Code)
+                    ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
+                    !! endpoint-mismatch(three, endpoint)
+
+          # alas, no go
+                !! not-deducible(one,two,three)
+          !! not-deducible(one,two,three)
     }
 
     # take seed / endpoint / and turn it into an iterator
@@ -1290,27 +1309,19 @@ B<after> a Whatever as the first element of a list on the RHS, e.g.:
 
 This now dies.
 
-=head2 LHS list with different types must have matching endpoint
+=head2 LHS elucidation should always have identical types
 
-The original implementation of the C<...> operator would try to smart-match
-the endpoint value with the final value on the LHS.  If the types of that
-final value and the endpoint do not smartmatch, then the values of the
-final value and the endpoint will most likely also never smartmatch, e.g.:
-
-   "a",1 ... "c";
-
-would never stop producing values.  This now dies.
+This implementation requires all values for sequence elucidation (either
+2 elements on the left, or the last three of three or more values) to be
+of the same type.  If they are not, the elucidation will fail.  This
+behaviour makes quite a few edge cases fail that the original implementation
+of the C<...> operator would try to make sense of.
 
 =head2 Elucidation of LHS with identical values now fail
 
 The original implementation of the C<...> operator would produce unexplicable
 results if the 2 or the last 3 values of the LHS list would contain the
 same values.  This will now die.
-
-=head2 Mixed types in LHS will now fail
-
-The original implementation of the C<...> operator would produce C<.succ>
-sequences if elucidation of a LHS contained mixed types.  This will now die.
 
 =head1 AUTHOR
 

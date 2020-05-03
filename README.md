@@ -65,24 +65,15 @@ The original implementation of the `...` operator would ignore any values **afte
 
 This now dies.
 
-LHS list with different types must have matching endpoint
----------------------------------------------------------
+LHS elucidation should always have identical types
+--------------------------------------------------
 
-The original implementation of the `...` operator would try to smart-match the endpoint value with the final value on the LHS. If the types of that final value and the endpoint do not smartmatch, then the values of the final value and the endpoint will most likely also never smartmatch, e.g.:
-
-    "a",1 ... "c";
-
-would never stop producing values. This now dies.
+This implementation requires all values for sequence elucidation (either 2 elements on the left, or the last three of three or more values) to be of the same type. If they are not, the elucidation will fail. This behaviour makes quite a few edge cases fail that the original implementation of the `...` operator would try to make sense of.
 
 Elucidation of LHS with identical values now fail
 -------------------------------------------------
 
 The original implementation of the `...` operator would produce unexplicable results if the 2 or the last 3 values of the LHS list would contain the same values. This will now die.
-
-Mixed types in LHS will now fail
---------------------------------
-
-The original implementation of the `...` operator would produce `.succ` sequences if elucidation of a LHS contained mixed types. This will now die.
 
 AUTHOR
 ======
