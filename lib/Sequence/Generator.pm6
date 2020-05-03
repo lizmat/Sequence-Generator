@@ -66,7 +66,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
     # Role for iterators that need to handle Slips
     my role Slipper does Iterator {
-        has $!slipping;  # the slip we're iterating now
+        has $!slipping;  # the slip we are iterating now
 
         proto method start-slip(|) {*}
         multi method start-slip(Slip:U \slip) {
@@ -81,7 +81,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                   (my \result := ($!slipping := slip.iterator).pull-one),
                   IterationEnd
                 ),
-                nqp::stmts(                  # we've determined there's nothing
+                nqp::stmts(                  # determined there is nothing
                   ($!slipping := nqp::null),
                   IterationEnd
                 ),
@@ -367,7 +367,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method is-lazy(--> True) { }
     }
 
-#-- iterators taking one or more lambda's --------------------------------------
+#-- iterators taking one or more lambdas ---------------------------------------
 
     # Iterator calling a lambda without any parameters
     class LambdaNone does Slipper {
@@ -442,7 +442,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               $!endpoint.ACCEPTS($result),
               nqp::if(
                 $!no-last,
-                IterationEnd,  # don't bother to produce last value
+                IterationEnd,  # do not bother to produce last value
                 nqp::stmts(
                   ($!producer := nqp::null),
                   $result
@@ -530,7 +530,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               $!endpoint.ACCEPTS($result),
               nqp::if(
                 $!no-last,
-                IterationEnd,  # don't bother to produce last value
+                IterationEnd,  # do not bother to produce last value
                 nqp::stmts(
                   ($!producer := nqp::null),
                   $result
@@ -621,7 +621,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               $!endpoint.ACCEPTS($result),
               nqp::if(
                 $!no-last,
-                IterationEnd,  # don't bother to produce last value
+                IterationEnd,  # do not bother to produce last value
                 nqp::stmts(
                   ($!producer := nqp::null),
                   $result
@@ -725,7 +725,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               $!endpoint.ACCEPTS($result),
               nqp::if(
                 $!no-last,
-                IterationEnd,  # don't bother to produce last value
+                IterationEnd,  # do not bother to produce last value
                 nqp::stmts(
                   ($!producer := nqp::null),
                   $result
@@ -827,7 +827,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               $!endpoint.ACCEPTS($result),
               nqp::if(
                 $!no-last,
-                IterationEnd,  # don't bother to produce last value
+                IterationEnd,  # do not bother to produce last value
                 nqp::stmts(
                   ($!producer := nqp::null),
                   $result
