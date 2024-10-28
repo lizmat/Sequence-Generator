@@ -1,3 +1,5 @@
+[![Actions Status](https://github.com/lizmat/Sequence-Generator/actions/workflows/linux.yml/badge.svg)](https://github.com/lizmat/Sequence-Generator/actions) [![Actions Status](https://github.com/lizmat/Sequence-Generator/actions/workflows/macos.yml/badge.svg)](https://github.com/lizmat/Sequence-Generator/actions) [![Actions Status](https://github.com/lizmat/Sequence-Generator/actions/workflows/windows.yml/badge.svg)](https://github.com/lizmat/Sequence-Generator/actions)
+
 NAME
 ====
 
@@ -6,9 +8,11 @@ Sequence::Generator - generate sequences of values from endpoints
 SYNOPSIS
 ========
 
-    use Sequence::Generator;
+```raku
+use Sequence::Generator;
 
-    say 1,2,4 ... 64; # (1 2 4 8 16 32 64)
+say 1,2,4 ... 64; # (1 2 4 8 16 32 64)
+```
 
 DESCRIPTION
 ===========
@@ -27,18 +31,24 @@ Semantics of multiple endpoints
 
 The original implementation of the `...` operator allowed a chain of endpoints to be specified:
 
-    say 1 ... 5 ... 1; # (1 2 3 4 5 4 3 2 1)
+```raku
+say 1 ... 5 ... 1; # (1 2 3 4 5 4 3 2 1)
+```
 
 This is no longer supported because of the unclear semantics of an endpoint also serving as a starting point as soon as it is anything more than a numeric value. If you would like to have such a sequence, you will have to use parentheses to indicate meaning:
 
-    say 1 ... (5 ... 1); # (1 2 3 4 5 4 3 2 1)
+```raku
+say 1 ... (5 ... 1); # (1 2 3 4 5 4 3 2 1)
+```
 
 Strict meaning of ^
 -------------------
 
 The original implementation of the `...^` operator treated omission of endpoints differently for numeric values:
 
-    say 1 ...^ 5.5; # (1 2 3 4 5)
+```raku
+say 1 ...^ 5.5; # (1 2 3 4 5)
+```
 
 This is generalized to **always** omit the last **generated** value, regardless of whether it actually compared exactly with the endpoint or not.
 
@@ -52,7 +62,9 @@ No longer silently ignores values on LHS after Callable
 
 The original implementation of the `...` operator would ignore any values **after** a Callable on the LHS, e.g.:
 
-    1,2,3, * + 1, 7,8,9 ... 100;
+```raku
+1,2,3, * + 1, 7,8,9 ... 100;
+```
 
 This now dies.
 
@@ -61,7 +73,9 @@ No longer silently ignores values with RHS list starting with *
 
 The original implementation of the `...` operator would ignore any values **after** a Whatever as the first element of a list on the RHS, e.g.:
 
-    1,2,3 ... *,42,666;
+```raku
+1,2,3 ... *,42,666;
+```
 
 This now dies.
 

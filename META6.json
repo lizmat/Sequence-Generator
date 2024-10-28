@@ -1,22 +1,27 @@
 {
-  "auth" : "cpan:ELIZABETH",
-  "authors" : [
+  "auth": "zef:lizmat",
+  "authors": [
     "Elizabeth Mattijsen"
   ],
-  "build-depends" : [ ],
-  "depends" : [ ],
-  "description" : "generate sequences of values from endpoints",
-  "license" : "Artistic-2.0",
-  "name" : "Sequence::Generator",
-  "perl" : "6.c",
-  "provides" : {
-    "Sequence::Generator" : "lib/Sequence/Generator.pm6"
-  },
-  "resources" : [ ],
-  "source-url" : "https://github.com/lizmat/Sequence-Generator",
-  "tags" : [
-    "UTILS"
+  "build-depends": [
   ],
-  "test-depends" : [ ],
-  "version" : "0.0.1"
+  "depends": [
+  ],
+  "description": "generate sequences of values from endpoints",
+  "license": "Artistic-2.0",
+  "name": "Sequence::Generator",
+  "perl": "6.c",
+  "provides": {
+    "Sequence::Generator": "lib/Sequence/Generator.rakumod"
+  },
+  "resources": [
+  ],
+  "source-url": "https://github.com/lizmat/Sequence-Generator.git",
+  "tags": [
+    "UTILS",
+    "SEQUENCE"
+  ],
+  "test-depends": [
+  ],
+  "version": "0.0.1"
 }
