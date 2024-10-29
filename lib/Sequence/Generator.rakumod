@@ -1,11 +1,10 @@
-use v6.c;
-
 # This module is intended to be part of the Rakudo core in the
 # foreseeable future.
 
 use nqp;
+use trace;
 
-class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
+class Sequence::Generator {
 
 #- copy of Rakudo::Iterator ----------------------------------------------------
 
@@ -16,18 +15,22 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has $!iterator;
         has $!value;
 
-        method !SET-SELF(\iterator) {
-            $!iterator := iterator;
-            nqp::eqaddr(($!value := iterator.pull-one),IterationEnd)
-              ?? ().iterator
-              !! self
+        method new($iterator is raw --> Iterator:D) {
+            if nqp::eqaddr((my $value := $iterator.pull-one),IterationEnd) {
+                ().iterator
+            }
+            else {
+                my $self := nqp::create(self);
+                nqp::bindattr($self,$?CLASS,'$!iterator',$iterator);
+                nqp::bindattr($self,$?CLASS,'$!value',   $value);
+                $self
+            }
         }
-        method new(\iterator) { nqp::create(self)!SET-SELF(iterator) }
         method pull-one() is raw {
-            my \this := $!value;
+            my $this := $!value;
             nqp::eqaddr(($!value := $!iterator.pull-one),IterationEnd)
-              ?? $!value
-              !! this
+              ?? IterationEnd
+              !! $this
         }
     }
     my class AllButLast does Iterator does AllButLastRole { }
@@ -41,26 +44,27 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has $!active;
         has $!spare;
 
-        method new(\one, \two) {
-            my $new := nqp::create(self);
-            nqp::bindattr($new,self,'$!active',one);
-            nqp::bindattr($new,self,'$!spare',two);
-            $new
+        method new($one is raw, $two is raw --> Iterator:D) {
+            my $self := nqp::create(self);
+            nqp::bindattr($self,TwoIterators,'$!active',$one);
+            nqp::bindattr($self,TwoIterators,'$!spare', $two);
+            $self
         }
         method pull-one() is raw {
-            nqp::if(
-              nqp::eqaddr((my \pulled := $!active.pull-one),IterationEnd),
-              nqp::if(
-                nqp::isnull($!spare),
-                IterationEnd,
-                nqp::stmts(            # switching to spare
-                  ($!active := $!spare),
-                  ($!spare  := nqp::null),
-                  $!active.pull-one
-                )
-              ),
-              pulled
-            )
+            my $pulled := $!active.pull-one;
+            if nqp::eqaddr($pulled,IterationEnd) {
+                if nqp::isnull($!spare) {
+                    IterationEnd
+                }
+                else {            # switching to spare
+                    $!active := $!spare;
+                    $!spare  := nqp::null;
+                    $!active.pull-one
+                }
+            }
+            else {
+                $pulled
+            }
         }
     }
 
@@ -69,31 +73,31 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has $!slipping;  # the slip we are iterating now
 
         proto method start-slip(|) {*}
-        multi method start-slip(Slip:U \slip) {
-            slip
+        multi method start-slip(Slip:U $slip) {
+            $slip
         }
-        multi method start-slip(Slip:D \slip) {
+        multi method start-slip(Slip:D $slip is raw) {
             nqp::if(
-              nqp::eqaddr(slip,Empty),
+              nqp::eqaddr($slip,Empty),
               self.pull-one,                 # nothing, so recurse
               nqp::if(
                 nqp::eqaddr(
-                  (my \result := ($!slipping := slip.iterator).pull-one),
+                  (my $result := ($!slipping := $slip.iterator).pull-one),
                   IterationEnd
                 ),
                 nqp::stmts(                  # determined there is nothing
                   ($!slipping := nqp::null),
                   IterationEnd
                 ),
-                result                       # started a Slip
+                $result                       # started a Slip
               )
             )
         }
 
         method slip-one() {
-            my \result := $!slipping.pull-one;
-            $!slipping := nqp::null if nqp::eqaddr(result,IterationEnd);
-            result
+            my $result := $!slipping.pull-one;
+            $!slipping  := nqp::null if nqp::eqaddr($result,IterationEnd);
+            $result
         }
     }
 
@@ -101,8 +105,10 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
     my class UnendingValue does Iterator {
         has Mu $!value;
-        method new(Mu \value) {
-            nqp::p6bindattrinvres(nqp::create(self),self,'$!value',value)
+        method new(Mu $value is raw --> Iterator:D) {
+            nqp::p6bindattrinvres(
+              nqp::create(self),UnendingValue,'$!value',$value
+            )
         }
         method pull-one() is raw { $!value }
         method skip-one(--> True) { }
@@ -110,15 +116,15 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         method is-lazy(--> True) { }
     }
 
-    # Unending iterator for constant numeric increment
+    # Unending iterator for constant numeric increment/decrement
     class UnendingStep does Iterator {
         has $!value;
         has $!step;
-        method new(\first,\step --> Iterator:D) {
-            my $new := nqp::create(self);
-            nqp::bindattr($new,self,'$!value',first - step);
-            nqp::bindattr($new,self,'$!step',step);
-            $new
+        method new($first is raw, $step is raw --> Iterator:D) {
+            my $self := nqp::create(self);
+            nqp::bindattr($self,UnendingStep,'$!value',$first - $step);
+            nqp::bindattr($self,UnendingStep,'$!step', $step);
+            $self
         }
         method pull-one() is raw { $!value := $!value + $!step }
         method is-lazy(--> True) { }
@@ -130,12 +136,12 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has $!step;
         has $!downto;
 
-        method new(\first, \step, \downto --> Iterator:D) {
-            my $new := nqp::create(self);
-            nqp::bindattr($new,self,'$!value',first - step);
-            nqp::bindattr($new,self,'$!step',step);
-            nqp::bindattr($new,self,'$!downto',downto);
-            $new
+        method new($first is raw, $step is raw, $downto is raw --> Iterator:D) {
+            my $self := nqp::create(self);
+            nqp::bindattr($self,StepDownto,'$!value', $first - $step);
+            nqp::bindattr($self,StepDownto,'$!step',  $step);
+            nqp::bindattr($self,StepDownto,'$!downto',$downto);
+            $self
         }
         method pull-one() is raw {
             ($!value := $!value + $!step) < $!downto
@@ -152,12 +158,12 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has $!step;
         has $!upto;
 
-        method new(\first, \step, \upto --> Iterator:D) {
-            my $new := nqp::create(self);
-            nqp::bindattr($new,self,'$!value',first - step);
-            nqp::bindattr($new,self,'$!step',step);
-            nqp::bindattr($new,self,'$!upto',upto);
-            $new
+        method new($first is raw, $step is raw, $upto is raw --> Iterator:D) {
+            my $self := nqp::create(self);
+            nqp::bindattr($self,StepUpto,'$!value',$first - $step);
+            nqp::bindattr($self,StepUpto,'$!step', $step);
+            nqp::bindattr($self,StepUpto,'$!upto', $upto);
+            $self
         }
         method pull-one() is raw {
             ($!value := $!value + $!step) > $!upto
@@ -166,6 +172,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         }
         method count-only(--> Int:D) { (($!upto - $!value) / $!step).Int }
         method bool-only(--> Bool:D) { $!value + $!step <= $!upto }
+        method is-monotonically-increasing(--> True) { }
     }
 
     # Iterator for stepping for a single codepoint
@@ -173,6 +180,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has int $!codepoint;
         has int $!step;
         has int $!todo;
+
         method !SET-SELF(
           int $first, int $last, int $no-first, int $no-last
         --> Iterator:D) {
@@ -194,9 +202,11 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                   !! nqp::chr($first).iterator
             }
         }
-        method new(\first, \last, int $no-first, int $no-last) {
+        method new(
+          $first is raw, $last is raw, int $no-first, int $no-last
+        --> Iterator:D) {
             nqp::create(self)!SET-SELF(
-              nqp::ord(first), nqp::ord(last), $no-first, $no-last
+              nqp::ord($first), nqp::ord($last), $no-first, $no-last
             )
         }
         method pull-one() is raw {
@@ -204,7 +214,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               ?? nqp::chr($!codepoint = nqp::add_i($!codepoint,$!step))
               !! IterationEnd
         }
-        method push-all(\target --> IterationEnd) {
+        method push-all($target is raw --> IterationEnd) {
             my int $todo = $!todo;
             my int $cp   = $!codepoint;
             my int $step = $!step;
@@ -213,7 +223,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
               $todo,
               nqp::while(
                 --$todo,
-                target.push(nqp::chr($cp = nqp::add_i($cp,$step)))
+                $target.push(nqp::chr($cp = nqp::add_i($cp,$step)))
               )
             );
             $!todo = $todo;  # make sure count/bool-only are correct
@@ -268,8 +278,8 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             self.skip-one if $no-first;
             $no-last ?? all-but-last(self) !! self
         }
-        method new(\first, \last, int $no-first, int $no-last) {
-            nqp::create(self)!SET-SELF(first, last, $no-first, $no-last)
+        method new($first is raw, $last is raw, int $no-first, int $no-last) {
+            nqp::create(self)!SET-SELF($first, $last, $no-first, $no-last)
         }
 
         method pull-one() is raw {
@@ -339,8 +349,8 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
             nqp::p6bindattrinvres(nqp::create(self),self,'$!value',first)
         }
         method pull-one() is raw {
-            $!value := (my \this := $!value).succ;
-            this
+            $!value := (my $this := $!value).succ;
+            $this
         }
         method is-lazy(--> True) { }
     }
@@ -353,16 +363,16 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         }
         method pull-one() is raw {
             nqp::unless(
-              nqp::eqaddr((my \this := $!value),IterationEnd),
+              nqp::eqaddr((my $this := $!value),IterationEnd),
               nqp::if(
-                nqp::istype(($!value := this.pred),Failure),
+                nqp::istype(($!value := $this.pred),Failure),
                 nqp::stmts(
                   $!value.Bool,  # mark Failure as handled
                   ($!value := IterationEnd)
                 )
               )
             );
-            this
+            $this
         }
         method is-lazy(--> True) { }
     }
@@ -373,33 +383,29 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     class LambdaNone does Slipper {
         has $!producer; # lambda to produce value
 
-        method new(\seed, \producer, int $no-last) {
-            my $new := nqp::create(self);
-            nqp::bindattr($new,self,'$!slipping',seed.iterator);
-            nqp::bindattr($new,self,'$!producer',producer);
-            $no-last ?? all-but-last($new) !! $new
+        method new($seed, $producer, int $no-last) {
+            my $self := nqp::create(self);
+            nqp::bindattr($self,LambdaNone,'$!slipping',$seed.iterator);
+            nqp::bindattr($self,LambdaNone,'$!producer',$producer);
+            $no-last ?? all-but-last($self) !! $self
         }
         method pull-one() is raw {
             my $result;
-            nqp::if(
-              nqp::isnull($!slipping),
-              nqp::stmts(                       # not slipping
-                nqp::handle(
+
+            if nqp::isnull($!slipping) {
+                nqp::handle(                # not slipping
                   ($result := $!producer()),
                   'LAST', (return IterationEnd)
-                ),
-                nqp::if(
-                  nqp::istype($result,Slip),
-                  self.start-slip($result),
-                  $result
-                )
-              ),
-              nqp::if(                          # slipping
-                nqp::eqaddr(($result := self.slip-one),IterationEnd),
-                self.pull-one, # recurse to handle potential Slip
-                $result
-              )
-            )
+                );
+                nqp::istype($result,Slip)
+                  ?? self.start-slip($result)
+                  !! $result
+            }
+            else {                          # slipping
+                nqp::eqaddr(($result := self.slip-one),IterationEnd)
+                  ?? self.pull-one          # recurse to handle potential Slip
+                  !! $result
+            }
         }
         method is-lazy(--> True) is raw { }
     }
@@ -410,46 +416,39 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has $!endpoint;    # value to call ACCEPTS on with produce value
         has int $!no-last; # flag to indicate skipping last produced value
 
-        method new(\seed, \producer, \endpoint, int $no-last) {
-            my $new := nqp::create(self);
-            nqp::bindattr($new,self,'$!slipping',seed.iterator);
-            nqp::bindattr($new,self,'$!producer',producer);
-            nqp::bindattr($new,self,'$!endpoint',endpoint);
-            nqp::bindattr_i($new,self,'$!no-last',$no-last);
-            $new
+        method new($seed, $producer, $endpoint, int $no-last) {
+            my $self := nqp::create(self);
+            nqp::bindattr($self,LambdaNoneAccepts,'$!slipping',$seed.iterator);
+            nqp::bindattr($self,LambdaNoneAccepts,'$!producer',$producer);
+            nqp::bindattr($self,LambdaNoneAccepts,'$!endpoint',$endpoint);
+            nqp::bindattr_i($self,LambdaNoneAccepts,'$!no-last', $no-last);
+            $self
         }
         method pull-one() is raw {
             my $result;
-            nqp::if(
-              nqp::isnull($!slipping),
-              nqp::stmts(                       # not slipping
+
+            # not slipping
+            if nqp::isnull($!slipping) {
                 nqp::handle(
                   ($result := nqp::ifnull($!producer,(return IterationEnd))()),
                   'LAST', (return IterationEnd)
-                ),
-                nqp::if(
-                  nqp::istype($result,Slip),
-                  ($result := self.start-slip($result))
-                )
-              ),
-              nqp::if(                          # slipping
-                nqp::eqaddr(($result := self.slip-one),IterationEnd),
-                (return self.pull-one) # recurse to handle potential Slip
-              )
-            );
+                );
+                $result := self.start-slip($result)
+                  if nqp::istype($result,Slip);
 
-            nqp::if(
-              $!endpoint.ACCEPTS($result),
-              nqp::if(
-                $!no-last,
-                IterationEnd,  # do not bother to produce last value
-                nqp::stmts(
-                  ($!producer := nqp::null),
-                  $result
-                )
-              ),
-              $result
-            )
+                if $!endpoint.ACCEPTS($result) {
+                    $!no-last  # do not bother to produce last value?
+                      ?? ($result    := IterationEnd)
+                      !! ($!producer := nqp::null)
+                }
+            }
+
+            # slipping
+            elsif nqp::eqaddr(($result := self.slip-one),IterationEnd) {
+                self.pull-one  # recurse to handle potential Slip
+            }
+
+            $result
         }
     }
 
@@ -458,33 +457,33 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         has $!value;    # value to be passed to lambda to produce next value
         has $!producer; # lambda to produce value
 
-        method new(\seed, \producer, int $no-last) {
-            my $new := nqp::create(self);
-            nqp::bindattr($new,self,'$!slipping',seed.iterator);
-            nqp::bindattr($new,self,'$!producer',producer);
-            $no-last ?? all-but-last($new) !! $new
+        method new($seed, $producer, int $no-last) {
+            my $self := nqp::create(self);
+            nqp::bindattr($self,Lambda1,'$!slipping',$seed.iterator);
+            nqp::bindattr($self,Lambda1,'$!producer',$producer);
+            $no-last ?? all-but-last($self) !! $self
         }
+
         method pull-one() is raw {
             my $result;
-            $!value := nqp::if(
-              nqp::isnull($!slipping),
-              nqp::stmts(                       # not slipping
+
+            $!value := do if nqp::isnull($!slipping) {
+                # not slipping
                 nqp::handle(
                   ($result := $!producer($!value)),
                   'LAST', (return IterationEnd)
-                ),
-                nqp::if(
-                  nqp::istype($result,Slip),
-                  self.start-slip($result),
-                  $result
-                )
-              ),
-              nqp::if(                          # slipping
-                nqp::eqaddr(($result := self.slip-one),IterationEnd),
-                (return self.pull-one), # recurse to handle potential Slip
-                $result
-              )
-            )
+                );
+
+                $result := nqp::istype($result,Slip)
+                  ?? self.start-slip($result)
+                  !! $result
+            }
+            else {
+                # slipping
+                nqp::eqaddr(($result := self.slip-one),IterationEnd)
+                  ?? (return self.pull-one)  # recurse to handle potential Slip
+                  !! $result
+            }
         }
         method is-lazy(--> True) is raw { }
     }
@@ -843,31 +842,24 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
     # Return iterator for 2 numeric endpoints
     multi method iterator(
-      Real:D \first, Real:D \endpoint, Int:D $no-first, Int:D $no-last
+      Real:D $first, Real:D $endpoint, Int:D $no-first, Int:D $no-last
     --> Iterator:D) {
-        my \iterator := endpoint < first
-          ?? endpoint == -Inf
-            ?? UnendingStep.new(first - $no-first, -1)
-            !! StepDownto.new(first - $no-first, -1, endpoint)
-          !! endpoint == Inf
-            ?? UnendingStep.new(first + $no-first, +1)
-            !! StepUpto.new(first + $no-first, +1, endpoint);
+        my $iterator := $endpoint < $first
+          ?? $endpoint == -Inf
+            ?? (return UnendingStep.new($first - $no-first, -1))
+            !! StepDownto.new($first - $no-first, -1, $endpoint)
+          !! $endpoint == Inf
+            ?? (return UnendingStep.new($first + $no-first, +1))
+            !! StepUpto.new($first + $no-first, +1, $endpoint);
 
-        $no-last ?? all-but-last(iterator) !! iterator
-    }
-
-    # Return iterator for numeric ... Whatever
-    multi method iterator(
-      Real:D \first, Whatever, Int:D $no-first, Int:D $
-    --> Iterator:D) {
-        UnendingStep.new(first + $no-first, 1)
+        $no-last ?? all-but-last($iterator) !! $iterator
     }
 
     # Return iterator for two string endpoints
     multi method iterator(
       Str:D $first, Str:D $last, Int:D $no-first, Int:D $no-last
     --> Iterator:D) {
-        nqp::chars($first) == nqp::chars($last)
+        $first.chars == $last.chars
           ?? $first eq $last                            # same length
             ?? $no-first || $no-last                     # same string
               ?? ().iterator                              # some end excluded
@@ -884,14 +876,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
                $first, $last, $no-first, $no-last)
     }
 
-    # Return iterator for anything unending
-    multi method iterator(
-      Any:D $first, Whatever, Int:D $no-first, Int:D $
-    --> Iterator:D) {
-        UnendingSucc.new($no-first ?? $first.succ !! $first)
-    }
-
-    # Return iterator for anything unending
+    # Return iterator for anything with a numeric endpoint
     multi method iterator(
       Any:D $first, Real:D $endpoint, Int:D $no-first, Int:D $no-last
     --> Iterator:D) {
@@ -907,76 +892,76 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     }
 
     # helper methods for lambdas
-    method !lambda-none(\initials, \lambda, \endpoint, int $no-last) {
-        nqp::istype(endpoint,Whatever) || endpoint === Inf
-          ?? LambdaNone.new(initials, lambda, $no-last)
-          !! LambdaNoneAccepts.new(initials, lambda, endpoint, $no-last)
+    method !lambda-none($initials, $lambda, $endpoint, int $no-last) {
+        $endpoint == Inf
+          ?? LambdaNone.new($initials, $lambda, $no-last)
+          !! LambdaNoneAccepts.new($initials, $lambda, $endpoint, $no-last)
     }
-    method !lambda1(\initials, \lambda, \endpoint, int $no-last) {
-        nqp::istype(endpoint,Whatever) || endpoint === Inf
-          ?? Lambda1.new(initials, lambda, $no-last)
-          !! Lambda1Accepts.new(initials, lambda, endpoint, $no-last)
+    method !lambda1($initials, $lambda, $endpoint, int $no-last) {
+        $endpoint == Inf
+          ?? Lambda1.new($initials, $lambda, $no-last)
+          !! Lambda1Accepts.new($initials, $lambda, $endpoint, $no-last)
     }
-    method !lambda2(\initials, \lambda, \endpoint, int $no-last) {
-        nqp::istype(endpoint,Whatever) || endpoint === Inf
-          ?? Lambda2.new(initials, lambda, $no-last)
-          !! Lambda2Accepts.new(initials, lambda, endpoint, $no-last)
+    method !lambda2($initials, $lambda, $endpoint, int $no-last) {
+        $endpoint == Inf
+          ?? Lambda2.new($initials, $lambda, $no-last)
+          !! Lambda2Accepts.new($initials, $lambda, $endpoint, $no-last)
     }
-    method !lambda-n(\initials, \lambda, \endpoint, int $no-last, int $elems) {
-        nqp::istype(endpoint,Whatever) || endpoint === Inf
-          ?? LambdaN.new(initials, lambda, $no-last, $elems)
-          !! LambdaNAccepts.new(initials, lambda, endpoint, $no-last, $elems)
+    method !lambda-n($initials, $lambda, $endpoint, int $no-last, int $elems) {
+        $endpoint == Inf
+          ?? LambdaN.new($initials, $lambda, $no-last, $elems)
+          !! LambdaNAccepts.new($initials, $lambda, $endpoint, $no-last, $elems)
     }
-    method !lambda-all(\initials, \lambda, \endpoint, int $no-last) {
-        nqp::istype(endpoint,Whatever) || endpoint === Inf
-          ?? LambdaAll.new(initials, lambda, $no-last)
-          !! LambdaAllAccepts.new(initials, lambda, endpoint, $no-last)
+    method !lambda-all($initials, $lambda, $endpoint, int $no-last) {
+        $endpoint == Inf
+          ?? LambdaAll.new($initials, $lambda, $no-last)
+          !! LambdaAllAccepts.new($initials, $lambda, $endpoint, $no-last)
     }
 
     # Return iterator for given initial values with endpoint
     method !iterator-endpoint(
-      $source, Mu \endpoint, int $no-first, int $no-last
+      $source, Mu $endpoint, int $no-first, int $no-last
     --> Iterator:D) {
         my $initials := nqp::create(IterationBuffer);
         my $iterator := nqp::null;
 
         # find the right iterator
         nqp::until(
-          nqp::eqaddr((my \pulled := $source.pull-one),IterationEnd),
+          nqp::eqaddr((my $pulled := $source.pull-one),IterationEnd),
           nqp::if(
             nqp::isnull($iterator),
             nqp::if(
-              nqp::istype(pulled,Code),
+              nqp::istype($pulled,Code),
               ($iterator := nqp::if(
-                (my $arg-count := pulled.arity || pulled.count),
+                (my $arg-count := $pulled.arity || $pulled.count),
                 nqp::if(
                   $arg-count == 1,
-                  self!lambda1($initials, pulled,
-                    nqp::decont(endpoint), $no-last),
+                  self!lambda1($initials, $pulled,
+                    nqp::decont($endpoint), $no-last),
                   nqp::if(
                     $arg-count == 2,
-                    self!lambda2($initials, pulled,
-                      nqp::decont(endpoint), $no-last),
+                    self!lambda2($initials, $pulled,
+                      nqp::decont($endpoint), $no-last),
                     nqp::if(
                       $arg-count == Inf,
-                      self!lambda-all($initials, pulled,
-                        nqp::decont(endpoint), $no-last),
-                      self!lambda-n($initials, pulled,
-                        nqp::decont(endpoint), $no-last, $arg-count)
+                      self!lambda-all($initials, $pulled,
+                        nqp::decont($endpoint), $no-last),
+                      self!lambda-n($initials, $pulled,
+                        nqp::decont($endpoint), $no-last, $arg-count)
                     )
                   )
                 ),
-                self!lambda-none($initials, pulled,
-                  nqp::decont(endpoint), $no-last)
+                self!lambda-none($initials, $pulled,
+                  nqp::decont($endpoint), $no-last)
               )),
-              nqp::push($initials,pulled)
+              nqp::push($initials,$pulled)
             ),
-            die "Cannot have value after Callable: found {pulled}"
+            die "Cannot have value after Callable: found $pulled"
           )
         );
 
         # no iterator yet, use initial values
-        $iterator := self!elucidate($initials, endpoint, $no-last)
+        $iterator := self!elucidate($initials, $endpoint, $no-last)
           if nqp::isnull($iterator);
 
         $iterator.skip-one if $no-first;
@@ -985,162 +970,166 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
     # Return iterator for iterators with initial and endpoint values
     method !iterator-iterator(
-      Iterator:D \left, Iterator:D \right, int $no-first, int $no-last
+      Iterator:D $left, Iterator:D $right, int $no-first, int $no-last
     --> Iterator:D) {
-        nqp::eqaddr((my \endpoint := right.pull-one),IterationEnd)
-          ?? endpoint-mismatch(left, "empty list")
-          !! nqp::istype(endpoint,Whatever) || endpoint === Inf
+        nqp::eqaddr((my $endpoint := $right.pull-one),IterationEnd)
+          ?? endpoint-mismatch($left, "empty list")
+          !! $endpoint == Inf
             ?? die()  # can never produce later
             !! TwoIterators.new(
-                 self!iterator-endpoint(left, endpoint, $no-first, $no-last),
-                 right
+                 self!iterator-endpoint($left, $endpoint, $no-first, $no-last),
+                 $right
                )
     }
 
     # Return iterator for given initial values with endpoint
     multi method iterator(
-      @source, Mu \endpoint, Int:D $no-first, Int:D $no-last
+      @source, Mu $endpoint, Int:D $no-first, Int:D $no-last
     --> Iterator:D) is default {
-        nqp::istype(endpoint,Iterable)
+        nqp::istype($endpoint,Iterable)
           ?? self!iterator-iterator(
-               @source.iterator, endpoint.iterator, $no-first, $no-last
+               @source.iterator, $endpoint.iterator, $no-first, $no-last
              )
           !! self!iterator-endpoint(
-               @source.iterator, endpoint, $no-first, $no-last
+               @source.iterator, $endpoint, $no-first, $no-last
              )
     }
 
     method !elucidate2(
-      IterationBuffer:D \seed, \endpoint, int $no-last
+      IterationBuffer:D $seed is raw, $endpoint is raw, int $no-last
     --> Iterator:D) {
-        my \one := nqp::atpos(seed,0);
-        my \two := nqp::atpos(seed,1);
+        my $one := nqp::atpos($seed,0);
+        my $two := nqp::atpos($seed,1);
 
-        nqp::eqaddr(one.WHAT,two.WHAT)
-          ?? nqp::istype(one,Real)
+        nqp::eqaddr($one.WHAT,$two.WHAT)
+          ?? nqp::istype($one,Real)
 
             # numeric sequence
-            ?? (my \step := two - one)
-              ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
-                ?? UnendingStep.new(one, step)
-                !! nqp::istype(endpoint,Real)
-                  ?? step-to(one, step, endpoint, $no-last)
-                  !! endpoint-mismatch(one, endpoint)
-              !! not-deducible(one,two)  # no direction
+            ?? (my $step := $two - $one)
+              ?? $endpoint == Inf
+                ?? UnendingStep.new($one, $step)
+                !! nqp::istype($endpoint,Real)
+                  ?? step-to($one, $step, $endpoint, $no-last)
+                  !! endpoint-mismatch($one, $endpoint)
+              !! not-deducible($one,$two)  # no direction
 
 
             # short-cut not deducible
-            !! one === two
-              ?? not-deducible(one,two)
+            !! $one === $two
+              ?? not-deducible($one,$two)
 
               # potential .succ sequence
-              !! one.succ === two
+              !! $one.succ === $two
 
                 # .succ sequence
-                ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
-                  ?? UnendingSucc.new(one)
-                  !! nqp::istype(endpoint,one.WHAT)
-                    ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
-                    !! endpoint-mismatch(one, endpoint)
+                ?? $endpoint == Inf
+                  ?? UnendingSucc.new($one)
+                  !! nqp::istype($endpoint,$one.WHAT)
+                    ?? Lambda1Accepts.new($seed, *.succ, $endpoint, $no-last)
+                    !! endpoint-mismatch($one, $endpoint)
 
                 # potential .pred sequence
-                !! two.succ === one
+                !! $two.succ === $one
 
                   # .pred sequence
-                  ?? nqp::istype(endpoint,Whatever) || endpoint === -Inf
-                    ?? UnendingPred.new(one)
-                    !! nqp::istype(endpoint,one.WHAT)
-                      ?? Lambda1Accepts.new(seed, {
-                           nqp::istype((my \value := .pred),Failure)
+                  ?? $endpoint === -Inf
+                    ?? UnendingPred.new($one)
+                    !! nqp::istype($endpoint, $one.WHAT)
+                      ?? Lambda1Accepts.new($seed, {
+                           nqp::istype((my $value := .pred),Failure)
                              ?? (last)
-                             !! value
-                         }, endpoint, $no-last)
-                      !! endpoint-mismatch(one, endpoint)
+                             !! $value
+                         }, $endpoint, $no-last)
+                      !! endpoint-mismatch($one, $endpoint)
 
           # alas, no go
-                  !! not-deducible(one,two)
-          !! not-deducible(one,two)
+                  !! not-deducible($one, $two)
+          !! not-deducible($one, $two)
     }
 
     method !elucidateN(
-      IterationBuffer:D \seed, \endpoint, int $no-last
+      IterationBuffer:D $seed, $endpoint, int $no-last
     --> Iterator:D) {
-        my int $elems = nqp::elems(seed);
-        my \one   := nqp::atpos(seed,$elems - 3);
-        my \two   := nqp::atpos(seed,$elems - 2);
-        my \three := nqp::atpos(seed,$elems - 1);
+        my int $elems = nqp::elems($seed);
+        my $one   := nqp::atpos($seed,$elems - 3);
+        my $two   := nqp::atpos($seed,$elems - 2);
+        my $three := nqp::atpos($seed,$elems - 1);
 
-        nqp::istype(one.WHAT,Real)
-          && nqp::istype(two.WHAT,Real)
-          && nqp::istype(three.WHAT,Real)
+        nqp::istype($one.WHAT,Real)
+          && nqp::istype($two.WHAT,Real)
+          && nqp::istype($three.WHAT,Real)
 
           # all numerics
-          ?? (my \step := two - one) == three - two
+          ?? (my $step := $two - $one) == $three - $two
 
             # arithmetic sequence
-            ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
-              ?? TwoIterators.new(seed.iterator,
-                   UnendingStep.new(three + step, step))
-              !! nqp::istype(endpoint,Real)
-                ?? Lambda1Accepts.new(seed, * + step,
-                     step-endpoint(step, endpoint), $no-last)
-                !! nqp::istype(endpoint,Code)
-                  ?? Lambda1Accepts.new(seed, * + step, endpoint, $no-last)
-                  !! endpoint-mismatch(seed, endpoint)
+            ?? $endpoint == Inf
+              ?? TwoIterators.new($seed.iterator,
+                   UnendingStep.new($three + $step, $step))
+              !! nqp::istype($endpoint,Real)
+                ?? Lambda1Accepts.new($seed, * + $step,
+                     step-endpoint($step, $endpoint), $no-last)
+                !! nqp::istype($endpoint,Code)
+                  ?? Lambda1Accepts.new($seed, * + $step, $endpoint, $no-last)
+                  !! endpoint-mismatch($seed, $endpoint)
 
             # numbers, but not an arithmetic sequence
-            !! one && two && three
-                 && (my \mult := (two / one).narrow) > 0
-                 && three / two == mult
+            !! $one && $two && $three
+                 && (my $mult := ($two / $one).narrow) > 0
+                 && $three / $two == $mult
 
               # geometric sequence
-              ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
-                ?? Lambda1.new(seed, * * mult, $no-last)
-                !! nqp::istype(endpoint,Real)
-                  ?? Lambda1Accepts.new(seed,* * mult,
-                       mult-endpoint(mult, endpoint), $no-last)
-                  !! nqp::istype(endpoint,Code)
-                    ?? Lambda1Accepts.new(seed,* * mult,endpoint,$no-last)
-                    !! endpoint-mismatch(seed, endpoint)
-              !! not-deducible(one,two,three,"here")
+              ?? $endpoint == Inf
+                ?? Lambda1.new($seed, * * $mult, $no-last)
+                !! nqp::istype($endpoint,Real)
+                  ?? Lambda1Accepts.new($seed, * * $mult,
+                       mult-endpoint($mult, $endpoint), $no-last)
+                  !! nqp::istype($endpoint,Code)
+                    ?? Lambda1Accepts.new($seed, * * $mult, $endpoint, $no-last)
+                    !! endpoint-mismatch($seed, $endpoint)
+              !! not-deducible($one, $two, $three, "here")
 
           # all same type, potential .succ
-          !! nqp::eqaddr(one.WHAT,two.WHAT) && nqp::eqaddr(two.WHAT,three.WHAT)
-            ?? one.succ === two && two.succ === three
+          !! nqp::eqaddr($one.WHAT,$two.WHAT)
+               && nqp::eqaddr($two.WHAT,$three.WHAT)
+            ?? $one.succ === $two && $two.succ === $three
 
               # simple .succ
-              ?? nqp::istype(endpoint,Whatever) || endpoint === Inf
-                ?? TwoIterators.new(seed.iterator,
-                     UnendingSucc.new(three.succ))
-                !! nqp::istype(three.WHAT,endpoint.WHAT)
-                     || nqp::istype(endpoint,Code)
-                  ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
-                  !! endpoint-mismatch(three, endpoint)
+              ?? $endpoint == Inf
+                ?? TwoIterators.new(
+                     $seed.iterator,
+                     UnendingSucc.new($three.succ)
+                   )
+                !! nqp::istype($three.WHAT,$endpoint.WHAT)
+                     || nqp::istype($endpoint,Code)
+                  ?? Lambda1Accepts.new($seed, *.succ, $endpoint, $no-last)
+                  !! endpoint-mismatch($three, $endpoint)
 
               # not a simple .succ
-              !! two.succ === one && three.succ === two
+              !! $two.succ === $one && $three.succ === $two
 
                 # simple .pred
-                ?? nqp::istype(endpoint,Whatever) || endpoint === -Inf
-                  ?? Lambda1.new(seed, *.pred, $no-last)
-                  !! nqp::istype(three.WHAT,endpoint.WHAT)
-                       || nqp::istype(endpoint,Code)
-                    ?? Lambda1Accepts.new(seed, *.succ, endpoint, $no-last)
-                    !! endpoint-mismatch(three, endpoint)
+                ?? $endpoint === -Inf
+                  ?? Lambda1.new($seed, *.pred, $no-last)
+                  !! nqp::istype($three.WHAT,$endpoint.WHAT)
+                       || nqp::istype($endpoint,Code)
+                    ?? Lambda1Accepts.new($seed, *.succ, $endpoint, $no-last)
+                    !! endpoint-mismatch($three, $endpoint)
 
             # alas, no go
-                !! not-deducible(one,two,three)
-            !! not-deducible(one,two,three)
+                !! not-deducible($one, $two, $three)
+            !! not-deducible($one, $two, $three)
     }
 
     # take seed / endpoint / and turn it into an iterator
-    method !elucidate(IterationBuffer:D \seed, \endpoint, int $no-last) {
-        nqp::iseq_i(nqp::elems(seed),2)
-          ?? self!elucidate2(seed, endpoint, $no-last)
-          !! nqp::isgt_i(nqp::elems(seed),2)
-            ?? self!elucidateN(seed, endpoint, $no-last)
-            !! nqp::elems(seed)
-              ?? self.iterator(nqp::shift(seed), endpoint, 0, $no-last)
+    method !elucidate(IterationBuffer:D $seed, $endpoint, int $no-last) {
+        my int $elems = nqp::elems($seed);
+        $elems == 2
+          ?? self!elucidate2($seed, $endpoint, $no-last)
+          !! $elems > 2
+            ?? self!elucidateN($seed, $endpoint, $no-last)
+            !! $elems
+              ?? self.iterator(nqp::shift($seed), $endpoint, 0, $no-last)
               !! die
     }
 
@@ -1149,12 +1138,12 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
     # helper sub to get correct "all but last" iterator
     proto sub all-but-last(|) {*}
     multi sub all-but-last(
-      PredictiveIterator:D \iterator
+      PredictiveIterator:D $iterator
     --> PredictiveIterator:D) {
-        AllButLastPredictive.new(iterator)
+        AllButLastPredictive.new($iterator)
     }
-    multi sub all-but-last(Iterator:D \iterator --> Iterator:D) {
-        AllButLast.new(iterator)
+    multi sub all-but-last(Iterator:D $iterator --> Iterator:D) {
+        AllButLast.new($iterator)
     }
 
     # helper sub to make a nqp::list_s for 2 codepoints
@@ -1162,7 +1151,7 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
         my int $step = $from < $to ?? 1 !! -1;
         my int $this = $from - $step;
 
-        my $chars := nqp::list_s();
+        my $chars := nqp::list_s;
         nqp::until(
           nqp::iseq_i(($this = nqp::add_i($this,$step)),$to),
           nqp::push_s($chars,nqp::chr($this))
@@ -1174,34 +1163,34 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
     # ensure buffer containes right number of values to be passed
     sub set-buffer-size(
-      IterationBuffer:D \buffer, int $elems
+      IterationBuffer:D $buffer, int $elems
     --> IterationBuffer:D) {
         nqp::while(
-          nqp::isgt_i(nqp::elems(buffer),$elems),
-          nqp::shift(buffer)
+          nqp::isgt_i(nqp::elems($buffer),$elems),
+          nqp::shift($buffer)
         );
         nqp::while(
-          nqp::islt_i(nqp::elems(buffer),$elems),
-          nqp::unshift(buffer,Any)
+          nqp::islt_i(nqp::elems($buffer),$elems),
+          nqp::unshift($buffer,Any)
         );
-        buffer
+        $buffer
     }
 
     # helper sub to return correct stepper ender
-    sub step-endpoint(\step, \endpoint) {
-        step > 0 ?? * >= endpoint !! * <= endpoint
+    sub step-endpoint($step, $endpoint) {
+        $step > 0 ?? * >= $endpoint !! * <= $endpoint
     }
 
     # helper sub to return correct multiplication ender
-    sub mult-endpoint(\mult, \endpoint) {
-        mult > 1 ?? * >= endpoint !! * <= endpoint
+    sub mult-endpoint($mult, $endpoint) {
+        $mult > 1 ?? * >= $endpoint !! * <= $endpoint
     }
 
-    # helper sub to rteurn correct stepper iterator
-    sub step-to(\value, \step, \end, int $no-last --> Iterator:D) {
-        step > 0
-          ?? StepUpto.new(  value, step, $no-last ?? end - step !! end)
-          !! StepDownto.new(value, step, $no-last ?? end - step !! end)
+    # helper sub to return correct stepper iterator
+    sub step-to($value, $step, $end, int $no-last --> Iterator:D) {
+        $step > 0
+          ?? StepUpto.new(  $value, $step, $no-last ?? $end - $step !! $end)
+          !! StepDownto.new($value, $step, $no-last ?? $end - $step !! $end)
     }
 
     # make quitting easy
@@ -1215,22 +1204,35 @@ class Sequence::Generator:ver<0.0.1>:auth<cpan:ELIZABETH> {
 
 #-- operator front-end ---------------------------------------------------------
 
-my sub infix:<...>(Mu \a, Mu \b) is export is equiv(&infix:<...>){
-    Seq.new: Sequence::Generator.iterator(a, b, 0, 0)
+my proto sub infix:<...>(|) is export is equiv(&infix:<...>) {*}
+my multi sub infix:<...>(Mu $a, Whatever) { $a ... Inf }
+my multi sub infix:<...>(Mu $a, Mu $b) {
+    Seq.new: Sequence::Generator.iterator($a, $b, 0, 0)
 }
-my sub infix:<...^>(Mu \a, Mu \b) is export is equiv(&infix:<...>){
-    Seq.new: Sequence::Generator.iterator(a, b, 0, 1)
+
+my proto sub infix:<...^>(|) is export is equiv(&infix:<...>) {*}
+my multi sub infix:<...^>(Mu $a, Whatever) { $a ...^ Inf }
+my multi sub infix:<...^>(Mu $a, Mu $b) {
+    Seq.new: Sequence::Generator.iterator($a, $b, 0, 1)
 }
-my sub infix:<^...>(Mu \a, Mu \b) is export is equiv(&infix:<...>){
-    Seq.new: Sequence::Generator.iterator(a, b, 1, 0)
+
+my proto sub infix:<^...>(|) is export is equiv(&infix:<...>) {*}
+my multi sub infix:<^...>(Mu $a, Whatever) { $a ^... Inf }
+my multi sub infix:<^...>(Mu $a, Mu $b) {
+    Seq.new: Sequence::Generator.iterator($a, $b, 1, 0)
 }
-my sub infix:<^...^>(Mu \a, Mu \b) is export is equiv(&infix:<...>){
-    Seq.new: Sequence::Generator.iterator(a, b, 1, 1)
+
+my proto sub infix:<^...^>(|) is export is equiv(&infix:<...>) {*}
+my multi sub infix:<^...^>(Mu $a, Whatever) { $a ^...^ Inf }
+my multi sub infix:<^...^>(Mu $a, Mu $b) {
+    Seq.new: Sequence::Generator.iterator($a, $b, 1, 1)
 }
 
 my constant &infix:<…>   is export := &infix:<<...>>;
 my constant &infix:<…^>  is export := &infix:<<...^>>;
 my constant &infix:<^…>  is export := &infix:<<^...>>;
 my constant &infix:<^…^> is export := &infix:<<^...^>>;
+
+#dd -> {slip 'zero','one'} ... *;
 
 # # vim: expandtab shiftwidth=4

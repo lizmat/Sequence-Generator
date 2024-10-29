@@ -1,4 +1,3 @@
-use v6.c;
 use Test;
 
 use Sequence::Generator;
@@ -18,4 +17,4 @@ for @types -> $type {
       "not the same as the core $name";
 }
 
-# vim: ft=perl6 expandtab sw=4
+# vim: expandtab shiftwidth=4
