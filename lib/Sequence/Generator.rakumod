@@ -495,48 +495,43 @@ class Sequence::Generator {
         has $!endpoint;    # value to call ACCEPTS on with produce value
         has int $!no-last; # flag to indicate skipping last produced value
 
-        method new(\seed, \producer, \endpoint, int $no-last) {
-            my $new := nqp::create(self);
-            nqp::bindattr($new,self,'$!slipping',seed.iterator);
-            nqp::bindattr($new,self,'$!producer',producer);
-            nqp::bindattr($new,self,'$!endpoint',endpoint);
-            nqp::bindattr_i($new,self,'$!no-last',$no-last);
-            $new
+        method new($seed, $producer, $endpoint, int $no-last) {
+            my $self := nqp::create(self);
+            nqp::bindattr($self,Lambda1Accepts,'$!slipping',$seed.iterator);
+            nqp::bindattr($self,Lambda1Accepts,'$!producer',$producer);
+            nqp::bindattr($self,Lambda1Accepts,'$!endpoint',$endpoint);
+            nqp::bindattr_i($self,Lambda1Accepts,'$!no-last',$no-last);
+            $self
         }
         method pull-one() is raw {
             my $result;
-            nqp::if(
-              nqp::isnull($!slipping),
-              nqp::stmts(                       # not slipping
+
+            if nqp::isnull($!slipping) {
                 nqp::handle(
                   ($result := nqp::ifnull(
                     $!producer,(return IterationEnd)
                   )($!value)),
                   'LAST', (return IterationEnd)
-                ),
-                nqp::if(
-                  nqp::istype($result,Slip),
-                  ($result := self.start-slip($result))
-                )
-              ),
-              nqp::if(                          # slipping
-                nqp::eqaddr(($result := self.slip-one),IterationEnd),
-                (return self.pull-one) # recurse to handle potential Slip
-              )
-            );
+                );
+                $result := self.start-slip($result)
+                  if nqp::istype($result,Slip);
+            }
+            elsif nqp::eqaddr(($result := self.slip-one),IterationEnd) {
+                return self.pull-one;  # recurse to handle potential Slip
+            }
 
-            nqp::if(
-              $!endpoint.ACCEPTS($result),
-              nqp::if(
-                $!no-last,
-                IterationEnd,  # do not bother to produce last value
-                nqp::stmts(
-                  ($!producer := nqp::null),
-                  $result
-                )
-              ),
-              ($!value := $result)
-            )
+            if $!endpoint.ACCEPTS($result) {
+                if $!no-last {
+                    IterationEnd       # do not bother to produce last value
+                }
+                else {                 # after this we're done
+                    $!producer := nqp::null;
+                    $result
+                }
+            }
+            else {
+                $!value := $result
+            }
         }
     }
 
@@ -546,31 +541,30 @@ class Sequence::Generator {
         has $!value2;   # second value to be passed to produce next value
         has $!producer; # lambda to produce value
 
-        method new(\seed, \producer, int $no-last) {
-            my $new := nqp::create(self);
-            nqp::bindattr($new,self,'$!slipping',seed.iterator);
-            nqp::bindattr($new,self,'$!producer',producer);
-            $no-last ?? all-but-last($new) !! $new
+        method new($seed, $producer, int $no-last) {
+            my $self := nqp::create(self);
+            nqp::bindattr($self,Lambda2,'$!slipping',$seed.iterator);
+            nqp::bindattr($self,Lambda2,'$!producer',$producer);
+            $no-last ?? all-but-last($self) !! $self
         }
+
         method pull-one() is raw {
             my $result;
-            nqp::if(
-              nqp::isnull($!slipping),
-              nqp::stmts(                       # not slipping
+
+            # not slipping
+            if nqp::isnull($!slipping) {
                 nqp::handle(
                   ($result := $!producer($!value1,$!value2)),
                   'LAST', (return IterationEnd)
-                ),
-                nqp::if(
-                  nqp::istype($result,Slip),
-                  ($result := self.start-slip($result))
-                )
-              ),
-              nqp::if(                          # slipping
-                nqp::eqaddr(($result := self.slip-one),IterationEnd),
-                (return self.pull-one) # recurse to handle potential Slip
-              )
-            );
+                );
+                $result := self.start-slip($result)
+                  if nqp::istype($result,Slip);
+            }
+
+            # slipping
+            elsif nqp::eqaddr(($result := self.slip-one),IterationEnd) {
+                return self.pull-one;   # recurse to handle potential Slip
+            }
 
             $!value1 := $!value2;
             $!value2 := $result;
@@ -586,51 +580,48 @@ class Sequence::Generator {
         has $!endpoint;    # value to call ACCEPTS on with produce value
         has int $!no-last; # flag to indicate skipping last produced value
 
-        method new(\seed, \producer, \endpoint, int $no-last) {
-            my $new := nqp::create(self);
-            nqp::bindattr($new,self,'$!slipping',seed.iterator);
-            nqp::bindattr($new,self,'$!producer',producer);
-            nqp::bindattr($new,self,'$!endpoint',endpoint);
-            nqp::bindattr_i($new,self,'$!no-last',$no-last);
-            $new
+        method new($seed, $producer, $endpoint, int $no-last) {
+            my $self := nqp::create(self);
+            nqp::bindattr($self,Lambda2Accepts,'$!slipping',$seed.iterator);
+            nqp::bindattr($self,Lambda2Accepts,'$!producer',$producer);
+            nqp::bindattr($self,Lambda2Accepts,'$!endpoint',$endpoint);
+            nqp::bindattr_i($self,Lambda2Accepts,'$!no-last',$no-last);
+            $self
         }
+
         method pull-one() is raw {
             my $result;
-            nqp::if(
-              nqp::isnull($!slipping),
-              nqp::stmts(                       # not slipping
+
+            # not slipping
+            if nqp::isnull($!slipping) {
                 nqp::handle(
                   ($result := nqp::ifnull(
                     $!producer,(return IterationEnd)
                   )($!value1,$!value2)),
                   'LAST', (return IterationEnd)
-                ),
-                nqp::if(
-                  nqp::istype($result,Slip),
-                  ($result := self.start-slip($result))
-                )
-              ),
-              nqp::if(                          # slipping
-                nqp::eqaddr(($result := self.slip-one),IterationEnd),
-                (return self.pull-one) # recurse to handle potential Slip
-              )
-            );
+                );
+                $result := self.start-slip($result)
+                  if nqp::istype($result,Slip);
+            }
 
-            nqp::if(
-              $!endpoint.ACCEPTS($result),
-              nqp::if(
-                $!no-last,
-                IterationEnd,  # do not bother to produce last value
-                nqp::stmts(
-                  ($!producer := nqp::null),
-                  $result
-                )
-              ),
-              nqp::stmts(
-                ($!value1 := $!value2),
-                ($!value2 := $result)
-              )
-            )
+            # slipping
+            elsif nqp::eqaddr(($result := self.slip-one),IterationEnd) {
+                return self.pull-one;  # recurse to handle potential Slip
+            }
+
+            if $!endpoint.ACCEPTS($result) {
+                if $!no-last {
+                    IterationEnd       # do not bother to produce last value
+                }
+                else {                 # after this we're done
+                    $!producer := nqp::null;
+                    $result
+                }
+            }
+            else {
+                $!value1 := $!value2;
+                $!value2 := $result
+            }
         }
     }
 
@@ -640,36 +631,35 @@ class Sequence::Generator {
         has $!values;    # IterationBuffer with values to be passed to producer
         has $!list;      # HLL wrapper around $!values
 
-        method new(\seed, \producer, int $no-last, int $elems) {
-            my $new := nqp::create(self);
-            nqp::bindattr($new,self,'$!slipping',seed.iterator);
-            nqp::bindattr($new,self,'$!producer',producer);
-            nqp::bindattr($new,self,'$!list',
-              (my \values := nqp::bindattr(
-                $new,self,'$!values',set-buffer-size(nqp::clone(seed),$elems)
-              )).List
+        method new($seed, $producer, int $no-last, int $elems) {
+            my $self := nqp::create(self);
+            nqp::bindattr($self,LambdaN,'$!slipping',$seed.iterator);
+            nqp::bindattr($self,LambdaN,'$!producer',$producer);
+            nqp::bindattr($self,LambdaN,'$!list',
+              nqp::bindattr($self,LambdaN,'$!values',
+                set-buffer-size(nqp::clone($seed),$elems)
+              ).List
             );
-            $no-last ?? all-but-last($new) !! $new
+            $no-last ?? all-but-last($self) !! $self
         }
+
         method pull-one() is raw {
             my $result;
-            nqp::if(
-              nqp::isnull($!slipping),
-              nqp::stmts(                    # not slipping
+
+            # not slipping
+            if nqp::isnull($!slipping) {
                 nqp::handle(
                   ($result := $!producer(|$!list)),
                   'LAST', (return IterationEnd)
-                ),
-                nqp::if(
-                  nqp::istype($result,Slip),
-                  ($result := self.start-slip($result))
-                )
-              ),
-              nqp::if(                       # slipping
-                nqp::eqaddr(($result := self.slip-one),IterationEnd),
-                (return self.pull-one)  # recurse to handle potential Slip
-              )
-            );
+                );
+                $result := self.start-slip($result)
+                  if nqp::istype($result,Slip);
+            }
+
+            # slipping
+            elsif nqp::eqaddr(($result := self.slip-one),IterationEnd) {
+                return self.pull-one;  # recurse to handle potential Slip
+            }
 
             nqp::shift($!values);
             nqp::push($!values,$result)
@@ -685,56 +675,53 @@ class Sequence::Generator {
         has $!values;      # IterationBuffer with values to pass to producer
         has $!list;        # HLL wrapper around $!values
 
-        method new(\seed, \producer, \endpoint, int $no-last, int $elems) {
-            my $new := nqp::create(self);
-            nqp::bindattr($new,self,'$!slipping',seed.iterator);
-            nqp::bindattr($new,self,'$!producer',producer);
-            nqp::bindattr($new,self,'$!endpoint',endpoint);
-            nqp::bindattr_i($new,self,'$!no-last',$no-last);
-            nqp::bindattr($new,self,'$!list',
-              (my \values := nqp::bindattr(
-                $new,self,'$!values',set-buffer-size(nqp::clone(seed),$elems)
-              )).List
+        method new($seed, $producer, $endpoint, int $no-last, int $elems) {
+            my $self := nqp::create(self);
+            nqp::bindattr($self,LambdaNAccepts,'$!slipping',$seed.iterator);
+            nqp::bindattr($self,LambdaNAccepts,'$!producer',$producer);
+            nqp::bindattr($self,LambdaNAccepts,'$!endpoint',$endpoint);
+            nqp::bindattr_i($self,LambdaNAccepts,'$!no-last',$no-last);
+            nqp::bindattr($self,LambdaNAccepts,'$!list',
+              nqp::bindattr($self,LambdaNAccepts,'$!values',
+                set-buffer-size(nqp::clone($seed),$elems)
+              ).List
             );
-            $new
+            $self
         }
+
         method pull-one() is raw {
             my $result;
-            nqp::if(
-              nqp::isnull($!slipping),
-              nqp::stmts(                    # not slipping
+
+            # not slipping
+            if nqp::isnull($!slipping) {
                 nqp::handle(
                   ($result := nqp::ifnull(
                     $!producer,(return IterationEnd)
                   )(|$!list)),
                   'LAST', (return IterationEnd)
-                ),
-                nqp::if(
-                  nqp::istype($result,Slip),
-                  ($result := self.start-slip($result))
-                )
-              ),
-              nqp::if(                       # slipping
-                nqp::eqaddr(($result := self.slip-one),IterationEnd),
-                (return self.pull-one)  # recurse to handle potential Slip
-              )
-            );
+                );
+                $result := self.start-slip($result)
+                  if nqp::istype($result,Slip);
+            }
 
-            nqp::if(
-              $!endpoint.ACCEPTS($result),
-              nqp::if(
-                $!no-last,
-                IterationEnd,  # do not bother to produce last value
-                nqp::stmts(
-                  ($!producer := nqp::null),
-                  $result
-                )
-              ),
-              nqp::stmts(
-                nqp::shift($!values),
+            # slipping
+            elsif nqp::eqaddr(($result := self.slip-one),IterationEnd) {
+                return self.pull-one;  # recurse to handle potential Slip
+            }
+
+            if $!endpoint.ACCEPTS($result) {
+                if $!no-last {
+                    IterationEnd       # do not bother to produce last value
+                }
+                else {                 # after this we're done
+                    $!producer := nqp::null;
+                    $result
+                }
+            }
+            else {
+                nqp::shift($!values);
                 nqp::push($!values,$result)
-              )
-            )
+            }
         }
     }
 
@@ -744,39 +731,45 @@ class Sequence::Generator {
         has $!values;    # IterationBuffer with values to be passed to producer
         has $!list;      # HLL wrapper around $!values
 
-        method new(\seed, \producer, int $no-last) {
-            my $new := nqp::create(self);
-            nqp::bindattr($new,self,'$!slipping',seed.iterator);
-            nqp::bindattr($new,self,'$!producer',producer);
-            nqp::bindattr($new,self,'$!list',nqp::bindattr(
-              $new,self,'$!values',nqp::create(IterationBuffer)
-            ).List);
-            $no-last ?? all-but-last($new) !! $new
+        method new($seed, $producer, int $no-last) {
+            my $self := nqp::create(self);
+            nqp::bindattr($self,LambdaAll,'$!slipping',$seed.iterator);
+            nqp::bindattr($self,LambdaAll,'$!producer',$producer);
+            nqp::bindattr($self,LambdaAll,'$!list',
+              nqp::bindattr(
+                $self,LambdaAll,'$!values',nqp::create(IterationBuffer)
+              ).List
+            );
+            $no-last ?? all-but-last($self) !! $self
         }
+
         method pull-one() is raw {
             my $result;
-            nqp::if(
-              nqp::isnull($!slipping),
-              nqp::push(                       # not slipping
-                $!values,
-                nqp::stmts(
-                  nqp::handle(
-                    ($result := $!producer(|$!list)),
-                    'LAST', (return IterationEnd)
-                  ),
-                  nqp::if(
-                    nqp::istype($result,Slip),
-                    self.start-slip($result),
-                    $result
+
+            # not slipping
+            if nqp::isnull($!slipping) {
+                nqp::push(
+                  $!values,
+                  nqp::stmts(
+                    nqp::handle(
+                      ($result := $!producer(|$!list)),
+                      'LAST', (return IterationEnd)
+                    ),
+                    nqp::if(
+                      nqp::istype($result,Slip),
+                      self.start-slip($result),
+                      $result
+                    )
                   )
-                )
-              ),
-              nqp::if(                         # slipping
-                nqp::eqaddr(($result := self.slip-one),IterationEnd),
-                self.pull-one,  # recurse to handle potential Slip
-                nqp::push($!values,$result)
-              )
-            )
+                );
+            }
+
+            # slipping
+            else {
+                nqp::eqaddr(($result := self.slip-one),IterationEnd)
+                  ?? self.pull-one  # recurse to handle potential Slip
+                  !! nqp::push($!values,$result)
+            }
         }
         method is-lazy(--> True) is raw { }
     }
@@ -789,51 +782,52 @@ class Sequence::Generator {
         has $!values;      # IterationBuffer with values to pass to producer
         has $!list;        # HLL wrapper around $!values
 
-        method new(\seed, \producer, \endpoint, int $no-last) {
-            my $new := nqp::create(self);
-            nqp::bindattr($new,self,'$!slipping',seed.iterator);
-            nqp::bindattr($new,self,'$!producer',producer);
-            nqp::bindattr($new,self,'$!endpoint',endpoint);
-            nqp::bindattr_i($new,self,'$!no-last',$no-last);
-            nqp::bindattr($new,self,'$!list',nqp::bindattr(
-              $new,self,'$!values',nqp::create(IterationBuffer)
-            ).List);
-            $new
+        method new($seed, $producer, $endpoint, int $no-last) {
+            my $self := nqp::create(self);
+            nqp::bindattr($self,LambdaAllAccepts,'$!slipping',$seed.iterator);
+            nqp::bindattr($self,LambdaAllAccepts,'$!producer',$producer);
+            nqp::bindattr($self,LambdaAllAccepts,'$!endpoint',$endpoint);
+            nqp::bindattr_i($self,LambdaAllAccepts,'$!no-last',$no-last);
+            nqp::bindattr($self,LambdaAllAccepts,'$!list',
+              nqp::bindattr(
+                $self,LambdaAllAccepts,'$!values',nqp::create(IterationBuffer)
+              ).List
+            );
+            $self
         }
+
         method pull-one() is raw {
             my $result;
-            nqp::if(
-              nqp::isnull($!slipping),
-              nqp::stmts(                    # not slipping
+
+            # not slipping
+            if nqp::isnull($!slipping) {
                 nqp::handle(
                   ($result := nqp::ifnull(
                     $!producer,(return IterationEnd)
                   )(|$!list)),
                   'LAST', (return IterationEnd)
-                ),
-                nqp::if(
-                  nqp::istype($result,Slip),
-                  ($result := self.start-slip($result))
-                )
-              ),
-              nqp::if(                       # slipping
-                nqp::eqaddr(($result := self.slip-one),IterationEnd),
-                (return self.pull-one)  # recurse to handle potential Slip
-              )
-            );
+                );
+                $result := self.start-slip($result)
+                  if nqp::istype($result,Slip);
+            }
 
-            nqp::if(
-              $!endpoint.ACCEPTS($result),
-              nqp::if(
-                $!no-last,
-                IterationEnd,  # do not bother to produce last value
-                nqp::stmts(
-                  ($!producer := nqp::null),
-                  $result
-                )
-              ),
-              nqp::push($!values,$result)
-            )
+            # slipping
+            elsif nqp::eqaddr(($result := self.slip-one),IterationEnd) {
+                return self.pull-one;  # recurse to handle potential Slip
+            }
+
+            if $!endpoint.ACCEPTS($result) {
+                if $!no-last {
+                    IterationEnd       # do not bother to produce last value
+                }
+                else {                 # after this we're done
+                    $!producer := nqp::null;
+                    $result
+                }
+            }
+            else {
+                nqp::push($!values,$result)
+            }
         }
     }
 
