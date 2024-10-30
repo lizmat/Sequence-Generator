@@ -833,7 +833,7 @@ class Sequence::Generator {
 
     # Iterator for 2 numeric endpoints
     multi method iterator(
-      Real:D $first, Real:D $endpoint, Int:D $no-first, Int:D $no-last
+      Real:D $first, Real:D $endpoint;; int $no-first, int $no-last
     --> Iterator:D) {
         my $iterator := $endpoint < $first
           ?? $endpoint == -Inf
@@ -848,7 +848,7 @@ class Sequence::Generator {
 
     # Iterator for numeric and an Iterable endpoint
     multi method iterator(
-      Real:D $first, Iterable:D $endpoint, Int:D $no-first, Int:D $no-last
+      Real:D $first, Iterable:D $endpoint;; int $no-first, int $no-last
     --> Iterator:D) {
         my $rhs-iterator := $endpoint.iterator;
         my $last         := $rhs-iterator.pull-one;
@@ -862,7 +862,7 @@ class Sequence::Generator {
 
     # Iterator for two string endpoints
     multi method iterator(
-      Str:D $first, Str:D $last, Int:D $no-first, Int:D $no-last
+      Str:D $first, Str:D $last;; int $no-first, int $no-last
     --> Iterator:D) {
         $first.chars == $last.chars
           ?? $first eq $last                            # same length
@@ -883,7 +883,7 @@ class Sequence::Generator {
 
     # Iterator for Callable with a numeric endpoint
     multi method iterator(
-      Callable:D $code, Real:D $endpoint, Int:D $no-first, Int:D $no-last
+      Callable:D $code, Real:D $endpoint;; int $no-first, int $no-last
     --> Iterator:D) {
         my $iterator := self!"{ self!lambda-name($code) }"(
             (), $code, nqp::decont($endpoint), $no-last
@@ -894,7 +894,7 @@ class Sequence::Generator {
 
     # Iterator for anything with a numeric endpoint
     multi method iterator(
-      Any:D $first, Real:D $endpoint, Int:D $no-first, Int:D $no-last
+      Any:D $first, Real:D $endpoint;; int $no-first, int $no-last
     --> Iterator:D) {
         $endpoint == Inf
           ?? UnendingSucc.new($no-first ?? $first.succ !! $first)
@@ -909,32 +909,33 @@ class Sequence::Generator {
 
     # helper methods for lambdas
     method !lambda-none($initials, $lambda, $endpoint, int $no-last) {
-        $endpoint == Inf
+        nqp::istype($endpoint,Numeric:D) && $endpoint == Inf
           ?? LambdaNone.new($initials, $lambda, $no-last)
           !! LambdaNoneAccepts.new($initials, $lambda, $endpoint, $no-last)
     }
     method !lambda1($initials, $lambda, $endpoint, int $no-last) {
-        $endpoint == Inf
+        nqp::istype($endpoint,Numeric:D) && $endpoint == Inf
           ?? Lambda1.new($initials, $lambda, $no-last)
           !! Lambda1Accepts.new($initials, $lambda, $endpoint, $no-last)
     }
     method !lambda2($initials, $lambda, $endpoint, int $no-last) {
-        $endpoint == Inf
+        nqp::istype($endpoint,Numeric:D) && $endpoint == Inf
           ?? Lambda2.new($initials, $lambda, $no-last)
           !! Lambda2Accepts.new($initials, $lambda, $endpoint, $no-last)
     }
     method !lambda-n($initials, $lambda, $endpoint, int $no-last) {
         my int $args = $lambda.arity || $lambda.count;
-        $endpoint == Inf
+        nqp::istype($endpoint,Numeric:D) && $endpoint == Inf
           ?? LambdaN.new($initials, $lambda, $no-last, $args)
           !! LambdaNAccepts.new($initials, $lambda, $endpoint, $no-last, $args)
     }
     method !lambda-all($initials, $lambda, $endpoint, int $no-last) {
-        $endpoint == Inf
+        nqp::istype($endpoint,Numeric:D) && $endpoint == Inf
           ?? LambdaAll.new($initials, $lambda, $no-last)
           !! LambdaAllAccepts.new($initials, $lambda, $endpoint, $no-last)
     }
 
+    # find the name of the lambda helper method to use
     method !lambda-name($lambda) {
         (my $args := $lambda.arity || $lambda.count)
           ?? $args == 1
@@ -994,7 +995,7 @@ class Sequence::Generator {
 
     # Iterator for given initial values with endpoint
     multi method iterator(
-      @source, Mu $endpoint, Int:D $no-first, Int:D $no-last
+      @source, Mu $endpoint;; int $no-first, int $no-last
     --> Iterator:D) is default {
         nqp::istype($endpoint,Iterable)
           ?? self!iterator-iterator(
