@@ -334,6 +334,9 @@ my @tests = (
   'complex number ranges as LHS',
     (4+2i,3+3i), *, (4+2i,3+3i,2+4i,1+5i,0+6i,-1+7i,-2+8i,-3+9i,-4+10i,-5+11i),
 
+  'sequence stops when type of endpoint matches',
+    (5, { $_ ?? $_ - 1 !! 'liftoff' }), Str, (5,4,3,2,1,0,'liftoff'),
+
 #  'simple alternating sequence with one item and closure on the LHS',
 #    (1,{-$_}), 1, 1,
 
@@ -417,9 +420,6 @@ my @tests = (
 
 #  'arity-Inf limit',
 #    1, {@_ eq "1 2 3"}, (1,2,3),
-
-#  'sequence stops when type of endpoint matches',
-#    {quietly $_ > 3 ?? 'liftoff' !! $_ + 1}, Str, (1,2,3,4,'liftoff'),
 
 #  'sequence with RHS junction I',
 #    (10,8), 2|3, (10,8,6,4,2),
