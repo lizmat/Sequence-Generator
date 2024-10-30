@@ -1,6 +1,4 @@
-# This module is intended to be part of the Rakudo core in the
-# foreseeable future.
-
+# We need to be naughty for speed
 use nqp;
 
 class Sequence::Generator {
@@ -873,16 +871,11 @@ class Sequence::Generator {
     multi method iterator(
       Callable:D $code, Real:D $endpoint, Int:D $no-first, Int:D $no-last
     --> Iterator:D) {
-        if $endpoint == Inf {
-            my $iterator := self!"{ self!lambda-name($code) }"(
-                (), $code, nqp::decont($endpoint), $no-last
-            );
-            $iterator.skip-one if $no-first;
-            $iterator
-        }
-        else {
-            die;
-        }
+        my $iterator := self!"{ self!lambda-name($code) }"(
+            (), $code, nqp::decont($endpoint), $no-last
+        );
+        $iterator.skip-one if $no-first;
+        $iterator
     }
 
     # Return iterator for anything with a numeric endpoint
@@ -1005,13 +998,13 @@ class Sequence::Generator {
         my $two := nqp::atpos($seed,1);
 
         nqp::eqaddr($one.WHAT,$two.WHAT)
-          ?? nqp::istype($one,Real)
+          ?? nqp::istype($one,Numeric)
 
             # numeric sequence
             ?? (my $step := $two - $one)
               ?? $endpoint == Inf
                 ?? UnendingStep.new($one, $step)
-                !! nqp::istype($endpoint,Real)
+                !! nqp::istype($endpoint,Numeric)
                   ?? step-to($one, $step, $endpoint, $no-last)
                   !! endpoint-mismatch($one, $endpoint)
               !! not-deducible($one,$two)  # no direction

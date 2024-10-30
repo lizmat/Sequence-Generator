@@ -325,11 +325,15 @@ my @tests = (
   '0-ary generator output can be slipped from the start',
      -> {slip 'zero','one'}, *, <zero one zero one zero one zero one zero one>,
 
+  'sequence with one scalar containing Code on the LHS',
+    {3+2}, *, 5 xx 10,
+
+# https://github.com/rakudo/rakudo/issues/3344
+  'complex number ranges as LHS',
+    (4+2i,3+3i), *, (4+2i,3+3i,2+4i,1+5i,0+6i,-1+7i,-2+8i,-3+9i,-4+10i,-5+11i),
+
 #  'simple alternating sequence with one item and closure on the LHS',
 #    (1,{-$_}), 1, 1,
-
-#  'sequence with one scalar containing Code on the LHS',
-#    {3+2}, *, 5 xx 10,
 
 #  'simple sequence with two extra terms on the RHS',
 #    1, (5,4,3), [(1,2,3,4,5,4,3),(1,2,3,4,4,3),(2,3,4,5,4,3),(2,3,4,4,3)],
