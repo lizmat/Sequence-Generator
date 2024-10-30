@@ -17,11 +17,68 @@ say 1,2,4 ... 64; # (1 2 4 8 16 32 64)
 DESCRIPTION
 ===========
 
-Raku provides a `...` operator (and its friends `...^`, `^...` and `^...^`) to generate values from a given set of endpoints. It is one of the oldest parts of the Raku Programming Language. During its development, it obtained some quirks and behaviours that are now considered too magical, or considered to be a bug (which is sometimes actually frozen into spectests). On top of that, the development of the `...` operator preceded the occurrence of the `Iterator` role, so it actually does not use any of its benefits.
+Raku provides a `...` operator (and its friends `...^`, `^...` and `^...^`) to generate values from a given set of endpoints. It is one of the oldest parts of the Raku Programming Language.
+
+During its development, it obtained some quirks and behaviours that are now considered too magical, or considered to be a bug (which is sometimes actually frozen into spectests). On top of that, the development of the `...` operator preceded the occurrence of the `Iterator` role, so it actually does not use any of its benefits.
 
 This module started out as an attempt to make the `...` operator (and friends) much faster by re-implementing it using `Iterator`s, rather than `gather` / `take`. However, it became clear that fixing behaviour considered too magical or buggy, could break existing Raku code. It was therefore decided to turn this work into this module, with the option of incorporating it into a later language version of Raku.
 
 This module is between 4x and 20x faster than the Raku 6.d implementation.
+
+RULES
+=====
+
+This describes the rules that are being applied to the begin and end points of these generated sequences.
+
+Meaning of carets
+-----------------
+
+The carets `^` on the infix `...` operator are interpreted in a very strict way. On the left-hand side (`^...`) it means that the **initial** value will **not** be produced. On the right-hand side it means that the final value will **not** be produced.
+
+Two Real numbers
+----------------
+
+If the end point is larger than the begin point, then the functionality is the same as the `..` infix operator: add **1** for each step until the value is larger than the end point value.
+
+```raku
+say 1 ... 10;    # (1 2 3 4 5 6 7 8 9 10)
+say 1.5 ... 10;  # (1.5 2.5 3.5 4.5 5.5 6.5 7.5 8.5 9.5)
+```
+
+If the end point is smaller than the begin point, then **-1** is added for each step until the value is smaller than the end point value.
+
+```raku
+say 10 ... 1;   # (10 9 8 7 6 5 4 3 2 1)
+say 10.5 ... 1; # (10.5 9.5 8.5 7.5 6.5 5.5 4.5 3.5 2.5 1.5)
+```
+
+If you need other increments or decrements, you must use elucidation:
+
+```raku
+say 1, 3 ... 10;  # (1 3 5 7 9)
+say 10, 8 ... 1;  # (10 8 6 4 2)
+```
+
+Non-numeric endpoints
+---------------------
+
+If the sequence has a non-numeric end point, then the sequence will continue to produce values until the generated value smartmatches with the end point.
+
+```raku
+say 5, { $_ ?? $_ - 1 !! "liftoff" } ... Str;
+# (5 4 3 2 1 0 liftoff)
+```
+
+Two strings
+-----------
+
+A sequence can only be generated for two strings if they have the same number of characters and all of the characters are either in the range of `a .. z`, `A .. Z` or `0 .. 9`. Furthermore, the range of each character of the begin point needs to be in the same range as the associated end point.
+
+Each grapheme will be incremented / decremented according to its counterpart to generate strings, with the rightmost grapheme being incremented / decremented first.
+
+```raku
+say "ac" ... "ba";  # (ac ab aa bc bb ba)
+```
 
 BREAKING CHANGES
 ================
