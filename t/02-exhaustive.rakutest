@@ -322,8 +322,8 @@ my @tests = (
   'geometric sequence that never reaches its limit',
     (1,1/2,1/4), 0, (1,1/2,1/4,1/8,1/16,1/32,1/64,1/128,1/256,1/512),
 
-#  '0-ary generator output can be slipped from the start',
-#     -> {slip 'zero','one'}, *, <zero one zero one zero one zero one zero one>,
+  '0-ary generator output can be slipped from the start',
+     -> {slip 'zero','one'}, *, <zero one zero one zero one zero one zero one>,
 
 #  'simple alternating sequence with one item and closure on the LHS',
 #    (1,{-$_}), 1, 1,

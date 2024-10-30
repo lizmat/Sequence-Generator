@@ -2,7 +2,6 @@
 # foreseeable future.
 
 use nqp;
-use trace;
 
 class Sequence::Generator {
 
@@ -870,6 +869,22 @@ class Sequence::Generator {
                $first, $last, $no-first, $no-last)
     }
 
+    # Return iterator for Callabl  with a numeric endpoint
+    multi method iterator(
+      Callable:D $code, Real:D $endpoint, Int:D $no-first, Int:D $no-last
+    --> Iterator:D) {
+        if $endpoint == Inf {
+            my $iterator := self!"{ self!lambda-name($code) }"(
+                (), $code, nqp::decont($endpoint), $no-last
+            );
+            $iterator.skip-one if $no-first;
+            $iterator
+        }
+        else {
+            die;
+        }
+    }
+
     # Return iterator for anything with a numeric endpoint
     multi method iterator(
       Any:D $first, Real:D $endpoint, Int:D $no-first, Int:D $no-last
@@ -901,15 +916,28 @@ class Sequence::Generator {
           ?? Lambda2.new($initials, $lambda, $no-last)
           !! Lambda2Accepts.new($initials, $lambda, $endpoint, $no-last)
     }
-    method !lambda-n($initials, $lambda, $endpoint, int $no-last, int $elems) {
+    method !lambda-n($initials, $lambda, $endpoint, int $no-last) {
+        my int $args = $lambda.arity || $lambda.count;
         $endpoint == Inf
-          ?? LambdaN.new($initials, $lambda, $no-last, $elems)
-          !! LambdaNAccepts.new($initials, $lambda, $endpoint, $no-last, $elems)
+          ?? LambdaN.new($initials, $lambda, $no-last, $args)
+          !! LambdaNAccepts.new($initials, $lambda, $endpoint, $no-last, $args)
     }
     method !lambda-all($initials, $lambda, $endpoint, int $no-last) {
         $endpoint == Inf
           ?? LambdaAll.new($initials, $lambda, $no-last)
           !! LambdaAllAccepts.new($initials, $lambda, $endpoint, $no-last)
+    }
+
+    method !lambda-name($lambda) {
+        (my $args := $lambda.arity || $lambda.count)
+          ?? $args == 1
+            ?? 'lambda1'
+            !! $args == 2
+              ?? 'lambda2'
+              !! $args == Inf
+                ?? 'lambda-all'
+                !! 'lambda-n'
+          !! 'lambda-none'
     }
 
     # Return iterator for given initial values with endpoint
@@ -926,27 +954,8 @@ class Sequence::Generator {
             nqp::isnull($iterator),
             nqp::if(
               nqp::istype($pulled,Code),
-              ($iterator := nqp::if(
-                (my $arg-count := $pulled.arity || $pulled.count),
-                nqp::if(
-                  $arg-count == 1,
-                  self!lambda1($initials, $pulled,
-                    nqp::decont($endpoint), $no-last),
-                  nqp::if(
-                    $arg-count == 2,
-                    self!lambda2($initials, $pulled,
-                      nqp::decont($endpoint), $no-last),
-                    nqp::if(
-                      $arg-count == Inf,
-                      self!lambda-all($initials, $pulled,
-                        nqp::decont($endpoint), $no-last),
-                      self!lambda-n($initials, $pulled,
-                        nqp::decont($endpoint), $no-last, $arg-count)
-                    )
-                  )
-                ),
-                self!lambda-none($initials, $pulled,
-                  nqp::decont($endpoint), $no-last)
+              ($iterator := self!"{ self!lambda-name($pulled) }"(
+                $initials, $pulled, nqp::decont($endpoint), $no-last
               )),
               nqp::push($initials,$pulled)
             ),
@@ -1226,7 +1235,5 @@ my constant &infix:<…>   is export := &infix:<<...>>;
 my constant &infix:<…^>  is export := &infix:<<...^>>;
 my constant &infix:<^…>  is export := &infix:<<^...>>;
 my constant &infix:<^…^> is export := &infix:<<^...^>>;
-
-#dd -> {slip 'zero','one'} ... *;
 
 # # vim: expandtab shiftwidth=4
