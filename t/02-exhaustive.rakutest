@@ -41,6 +41,8 @@ sub test-seq($description, Mu \seed, Mu \endpoint, \list) {
     my $Vresult;
     my $VresultV;
 
+    my $endpoint := endpoint ~~ Seq ?? endpoint.cache !! endpoint;
+
     # unique results
     if list ~~ Array {
         my @result is List = list.map: { $_ ~~ Seq ?? .Slip !! $_ }
@@ -61,19 +63,19 @@ sub test-seq($description, Mu \seed, Mu \endpoint, \list) {
     # run the tests
     subtest $description => {
         plan 4;
-        is-deeply infix:<...>(  seed, endpoint).head(10).List, $result,
+        is-deeply infix:<...>(  seed, $endpoint).head(10).List, $result,
           " ...  {$result.raku}";
-        is-deeply infix:<...^>( seed, endpoint).head(10).List, $resultV,
+        is-deeply infix:<...^>( seed, $endpoint).head(10).List, $resultV,
           " ...^ {$resultV.raku}";
-        is-deeply infix:<^...>( seed, endpoint).head(9).List, $Vresult,
+        is-deeply infix:<^...>( seed, $endpoint).head(9).List, $Vresult,
           "^...  {$Vresult.raku}";
-        is-deeply infix:<^...^>(seed, endpoint).head(9).List, $VresultV,
+        is-deeply infix:<^...^>(seed, $endpoint).head(9).List, $VresultV,
           "^...^ {$VresultV.raku}";
     }
 
     # optionally run same test for Inf as endpoint
     test-seq($description, seed, Inf, [$result,$resultV,$Vresult,$VresultV])
-      if endpoint ~~ Whatever;
+      if $endpoint ~~ Whatever;
 }
 
 # Set up tests, in order: description, LHS, RHS, result (either an Array,
@@ -459,6 +461,15 @@ my @tests = (
 # Run the tests
 for @tests -> \description, \seed, \endpoint, \result {
     test-seq(description, seed, endpoint, result)
+}
+
+subtest 'sequence as endpoint with lhs and rhs' => {
+    is-deeply (1  ...  (5  ...  1)), (1,2,3,4,5,4,3,2,1), ' ...   ... ';
+    is-deeply (1 ^...  (5  ...  1)), (  2,3,4,5,4,3,2,1), '^...   ... ';
+    is-deeply (1 ^...^ (5  ...  1)), (  2,3,4,  4,3,2,1), '^...^  ... ';
+    is-deeply (1  ...^ (5  ...  1)), (1,2,3,4,  4,3,2,1), ' ...^  ... ';
+    is-deeply (1  ...  (5 ^...  1)), (1,2,3,4,    3,2,1), ' ...  ^... ';
+    is-deeply (1  ...^ (5 ^...  1)), (1,2,3,      3,2,1), ' ...  ^... ';
 }
 
 done-testing;

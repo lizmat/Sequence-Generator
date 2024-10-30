@@ -1,6 +1,7 @@
 Revision history for Sequence-Generator
 
 {{$NEXT}}
+    - add support for Iterables as endpoint
 
 0.0.1  2024-10-30T13:06:57+01:00
     - Initial version

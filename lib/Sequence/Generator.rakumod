@@ -93,7 +93,7 @@ class Sequence::Generator {
 
         method slip-one() {
             my $result := $!slipping.pull-one;
-            $!slipping  := nqp::null if nqp::eqaddr($result,IterationEnd);
+            $!slipping := nqp::null if nqp::eqaddr($result,IterationEnd);
             $result
         }
     }
@@ -831,7 +831,7 @@ class Sequence::Generator {
 #-- the actual iterator dispatch -----------------------------------------------
     proto method iterator(|) {*}
 
-    # Return iterator for 2 numeric endpoints
+    # Iterator for 2 numeric endpoints
     multi method iterator(
       Real:D $first, Real:D $endpoint, Int:D $no-first, Int:D $no-last
     --> Iterator:D) {
@@ -846,7 +846,21 @@ class Sequence::Generator {
         $no-last ?? all-but-last($iterator) !! $iterator
     }
 
-    # Return iterator for two string endpoints
+    # Iterator for numeric and an Iterable endpoint
+    multi method iterator(
+      Real:D $first, Iterable:D $endpoint, Int:D $no-first, Int:D $no-last
+    --> Iterator:D) {
+        my $rhs-iterator := $endpoint.iterator;
+        my $last         := $rhs-iterator.pull-one;
+        $last := Inf if nqp::istype($last,Whatever);
+
+        TwoIterators.new(
+          self.iterator($first, $last, $no-first, $no-last),
+          $rhs-iterator
+        )
+    }
+
+    # Iterator for two string endpoints
     multi method iterator(
       Str:D $first, Str:D $last, Int:D $no-first, Int:D $no-last
     --> Iterator:D) {
@@ -867,7 +881,7 @@ class Sequence::Generator {
                $first, $last, $no-first, $no-last)
     }
 
-    # Return iterator for Callabl  with a numeric endpoint
+    # Iterator for Callable with a numeric endpoint
     multi method iterator(
       Callable:D $code, Real:D $endpoint, Int:D $no-first, Int:D $no-last
     --> Iterator:D) {
@@ -878,7 +892,7 @@ class Sequence::Generator {
         $iterator
     }
 
-    # Return iterator for anything with a numeric endpoint
+    # Iterator for anything with a numeric endpoint
     multi method iterator(
       Any:D $first, Real:D $endpoint, Int:D $no-first, Int:D $no-last
     --> Iterator:D) {
@@ -933,7 +947,7 @@ class Sequence::Generator {
           !! 'lambda-none'
     }
 
-    # Return iterator for given initial values with endpoint
+    # Iterator for given initial values with endpoint
     method !iterator-endpoint(
       $source, Mu $endpoint, int $no-first, int $no-last
     --> Iterator:D) {
@@ -964,7 +978,7 @@ class Sequence::Generator {
         $iterator
     }
 
-    # Return iterator for iterators with initial and endpoint values
+    # Iterator for iterators with initial and endpoint values
     method !iterator-iterator(
       Iterator:D $left, Iterator:D $right, int $no-first, int $no-last
     --> Iterator:D) {
@@ -978,7 +992,7 @@ class Sequence::Generator {
                )
     }
 
-    # Return iterator for given initial values with endpoint
+    # Iterator for given initial values with endpoint
     multi method iterator(
       @source, Mu $endpoint, Int:D $no-first, Int:D $no-last
     --> Iterator:D) is default {
