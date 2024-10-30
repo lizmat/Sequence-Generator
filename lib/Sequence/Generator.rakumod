@@ -199,9 +199,7 @@ class Sequence::Generator {
                   !! nqp::chr($first).iterator
             }
         }
-        method new(
-          $first is raw, $last is raw, int $no-first, int $no-last
-        --> Iterator:D) {
+        method new(str $first, str $last, int $no-first, int $no-last) {
             nqp::create(self)!SET-SELF(
               nqp::ord($first), nqp::ord($last), $no-first, $no-last
             )
@@ -275,7 +273,7 @@ class Sequence::Generator {
             self.skip-one if $no-first;
             $no-last ?? all-but-last(self) !! self
         }
-        method new($first is raw, $last is raw, int $no-first, int $no-last) {
+        method new(str $first, str $last, int $no-first, int $no-last) {
             nqp::create(self)!SET-SELF($first, $last, $no-first, $no-last)
         }
 
@@ -323,20 +321,6 @@ class Sequence::Generator {
 
             IterationEnd
         }
-    }
-
-    class SuccPredStr does Iterator {
-
-        method !SET-SELF(\first, \last, int $no-first, int $no-last) {
-
-            # set up iterator wrt to endpoints
-            self.skip-one if $no-first;
-            $no-last ?? all-but-last(self) !! self
-        }
-        method new(\first, \last, int $no-first, int $no-last) {
-            nqp::create(self)!SET-SELF(first, last, $no-first, $no-last)
-        }
-        method pull-one() is raw { ... }
     }
 
     # Unending iterator calling .succ
@@ -860,25 +844,41 @@ class Sequence::Generator {
         )
     }
 
+    sub sequenceable(str $left, str $right) {
+        my %group; #= (|("a".."z"), |"A".."Z", |"0".."9") >>=>>> 1;
+
+        my int $i = nqp::chars($left);
+
+        if nqp::chars($right) == $i {
+            nqp::while(
+              --$i >= 0
+                && %group{nqp::substr($left,$i,1)}
+                     === %group{nqp::substr($right,$i,1)},
+              nqp::null
+            );
+            die "not same group" if $i >= 0;
+        }
+        else {
+            die "not same length";
+        }
+    }
+
     # Iterator for two string endpoints
     multi method iterator(
       Str:D $first, Str:D $last;; int $no-first, int $no-last
     --> Iterator:D) {
-        $first.chars == $last.chars
-          ?? $first eq $last                            # same length
-            ?? $no-first || $no-last                     # same string
-              ?? ().iterator                              # some end excluded
-              !! $first.iterator                          # just the one please
-            !! nqp::codes($first) == nqp::codes($last)   # different string
-              ?? nqp::codes($first) == 1                  # same # of codepoints
-                ?? StepCodepoint.new(                      # just one codepoint
-                     $first, $last, $no-first, $no-last)
-                !! StepMultipleCodepoints.new(             # multiple codepoints
-                     $first, $last, $no-first, $no-last)
-              !! SuccPredStr.new(                         # different codepoints
-                   $first, $last, $no-first, $no-last)
-          !! SuccPredStr.new(                           # not same length
-               $first, $last, $no-first, $no-last)
+
+        sequenceable($first, $last);
+
+        $first eq $last
+          ?? $no-first || $no-last                   # same string
+            ?? ().iterator                            # some end excluded
+            !! $first.iterator                        # just the one please
+          !! nqp::chars($first) == 1                   # different string
+            ?? StepCodepoint.new(                       # just one codepoint
+                 $first, $last, $no-first, $no-last)
+            !! StepMultipleCodepoints.new(              # multiple codepoints
+                 $first, $last, $no-first, $no-last)
     }
 
     # Iterator for Callable with a numeric endpoint
