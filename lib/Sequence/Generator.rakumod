@@ -1,7 +1,7 @@
 # We need to be naughty for speed
 use nqp;
 
-class Sequence::Generator {
+class Sequence::Generator is repr('Uninstantiable') {
 
 #- copy of Rakudo::Iterator ----------------------------------------------------
 
@@ -817,7 +817,7 @@ class Sequence::Generator {
 
     # Iterator for 2 numeric endpoints
     multi method iterator(
-      Real:D $first, Real:D $endpoint;; int $no-first, int $no-last
+      Real:D $first, Real:D $endpoint;; int :$no-first, int :$no-last
     --> Iterator:D) {
         my $iterator := $endpoint < $first
           ?? $endpoint == -Inf
@@ -832,14 +832,14 @@ class Sequence::Generator {
 
     # Iterator for numeric and an Iterable endpoint
     multi method iterator(
-      Real:D $first, Iterable:D $endpoint;; int $no-first, int $no-last
+      Real:D $first, Iterable:D $endpoint;; int :$no-first, int :$no-last
     --> Iterator:D) {
         my $rhs-iterator := $endpoint.iterator;
         my $last         := $rhs-iterator.pull-one;
         $last := Inf if nqp::istype($last,Whatever);
 
         TwoIterators.new(
-          self.iterator($first, $last, $no-first, $no-last),
+          self.iterator($first, $last, :$no-first, :$no-last),
           $rhs-iterator
         )
     }
@@ -867,7 +867,7 @@ class Sequence::Generator {
 
     # Iterator for two string endpoints
     multi method iterator(
-      Str:D $first, Str:D $last;; int $no-first, int $no-last
+      Str:D $first, Str:D $last;; int :$no-first, int :$no-last
     --> Iterator:D) {
 
         nqp::istype((my $result := sequenceable($first, $last)),Failure)
@@ -885,7 +885,7 @@ class Sequence::Generator {
 
     # Iterator for Callable with a numeric endpoint
     multi method iterator(
-      Callable:D $code, Real:D $endpoint;; int $no-first, int $no-last
+      Callable:D $code, Real:D $endpoint;; int :$no-first, int :$no-last
     --> Iterator:D) {
         my $iterator := self!"{ self!lambda-name($code) }"(
             (), $code, nqp::decont($endpoint), $no-last
@@ -896,7 +896,7 @@ class Sequence::Generator {
 
     # Iterator for anything with a numeric endpoint
     multi method iterator(
-      Any:D $first, Real:D $endpoint;; int $no-first, int $no-last
+      Any:D $first, Real:D $endpoint;; int :$no-first, int :$no-last
     --> Iterator:D) {
         $endpoint == Inf
           ?? UnendingSucc.new($no-first ?? $first.succ !! $first)
@@ -952,7 +952,7 @@ class Sequence::Generator {
 
     # Iterator for given initial values with endpoint
     method !iterator-endpoint(
-      $source, Mu $endpoint, int $no-first, int $no-last
+      $source, Mu $endpoint, int $no-first?, int $no-last?
     --> Iterator:D) {
         my $initials := nqp::create(IterationBuffer);
         my $iterator := nqp::null;
@@ -998,7 +998,7 @@ class Sequence::Generator {
 
     # Iterator for given initial values with endpoint
     multi method iterator(
-      @source, Mu $endpoint;; int $no-first, int $no-last
+      @source, Mu $endpoint;; int :$no-first, int :$no-last
     --> Iterator:D) is default {
         nqp::istype($endpoint,Iterable)
           ?? self!iterator-iterator(
@@ -1222,7 +1222,7 @@ my proto sub infix:<...>(|) is export is equiv(&infix:<...>) {*}
 my multi sub infix:<...>(Mu $a, Whatever) { $a ... Inf }
 my multi sub infix:<...>(Mu $a, Mu $b) {
     nqp::istype(
-      (my $iterator := Sequence::Generator.iterator($a, $b, 0, 0)),
+      (my $iterator := Sequence::Generator.iterator($a, $b)),
       Failure
     ) ?? $iterator
       !! Seq.new: $iterator
@@ -1232,7 +1232,7 @@ my proto sub infix:<...^>(|) is export is equiv(&infix:<...>) {*}
 my multi sub infix:<...^>(Mu $a, Whatever) { $a ...^ Inf }
 my multi sub infix:<...^>(Mu $a, Mu $b) {
     nqp::istype(
-      (my $iterator := Sequence::Generator.iterator($a, $b, 0, 1)),
+      (my $iterator := Sequence::Generator.iterator($a, $b, :no-last)),
       Failure
     ) ?? $iterator
       !! Seq.new: $iterator
@@ -1242,7 +1242,7 @@ my proto sub infix:<^...>(|) is export is equiv(&infix:<...>) {*}
 my multi sub infix:<^...>(Mu $a, Whatever) { $a ^... Inf }
 my multi sub infix:<^...>(Mu $a, Mu $b) {
     nqp::istype(
-      (my $iterator := Sequence::Generator.iterator($a, $b, 1, 0)),
+      (my $iterator := Sequence::Generator.iterator($a, $b, :no-first)),
       Failure
     ) ?? $iterator
       !! Seq.new: $iterator
@@ -1252,7 +1252,7 @@ my proto sub infix:<^...^>(|) is export is equiv(&infix:<...>) {*}
 my multi sub infix:<^...^>(Mu $a, Whatever) { $a ^...^ Inf }
 my multi sub infix:<^...^>(Mu $a, Mu $b) {
     nqp::istype(
-      (my $iterator := Sequence::Generator.iterator($a, $b, 1, 1)),
+      (my $iterator := Sequence::Generator.iterator($a, $b,:no-first,:no-last)),
       Failure
     ) ?? $iterator
       !! Seq.new: $iterator

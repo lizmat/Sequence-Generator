@@ -153,6 +153,28 @@ Multiplication factor must be positive
 
 In elucidation, any multiplication factor found must be positive. Negative multiplication factors are too magic with regards to determine when the sequence must be ended. Please use a WhateverCode (e.g. `* * -1`) to indicate a negative multiplication factor.
 
+CLASS INTERFACE
+===============
+
+The `Sequence::Generator` class can not be instantiated: it merely serves as an entry point to the sequence generating logic. It exposes **one** method:
+
+iterator
+--------
+
+The `iterator` method takes two positional arguments: the seed for the sequence (aka the left-hand side of the `...` infix operator) and the end point (aka the right-hand side of the `...` infix operator). It returns an `Iterator` object.
+
+```raku
+my $iterator = Sequence::Generator.iterator((1,2,4), 64);
+say Seq.new($iterator);  # (1 2 4 8 16 32 64)
+```
+
+If you like to exclude the first or last generated value, you can pass the `:no-first` and/or the `:no-last` named arguments.
+
+```raku
+my $iterator = Sequence::Generator.iterator((1,2,4), 64, :no-first, :no-last);
+say Seq.new($iterator);  # (2 4 8 16 32)
+```
+
 AUTHOR
 ======
 

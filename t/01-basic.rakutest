@@ -4,7 +4,7 @@ use Sequence::Generator;
 
 my @types = < ... ...^ ^... ^...^ >;
 
-plan @types * 3;
+plan @types * 3 + 4;
 
 for @types -> $type {
 
@@ -16,5 +16,14 @@ for @types -> $type {
     nok MY::{$name} === CORE::{$name},
       "not the same as the core $name";
 }
+
+my $iterator = Sequence::Generator.iterator((1,2,4), 64);
+is Seq.new($iterator), '1 2 4 8 16 32 64', '...';
+$iterator = Sequence::Generator.iterator((1,2,4), 64, :no-first);
+is Seq.new($iterator), '2 4 8 16 32 64', '^...';
+$iterator = Sequence::Generator.iterator((1,2,4), 64, :no-last);
+is Seq.new($iterator), '1 2 4 8 16 32', '...^';
+$iterator = Sequence::Generator.iterator((1,2,4), 64, :no-first, :no-last);
+is Seq.new($iterator), '2 4 8 16 32', '^...^';
 
 # vim: expandtab shiftwidth=4

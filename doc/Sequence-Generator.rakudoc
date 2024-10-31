@@ -203,6 +203,36 @@ multiplication factors are too magic with regards to determine when the
 sequence must be ended.  Please use a WhateverCode (e.g. C< * * -1>) to
 indicate a negative multiplication factor.
 
+=head1 CLASS INTERFACE
+
+The C<Sequence::Generator> class can not be instantiated: it merely serves
+as an entry point to the sequence generating logic.  It exposes B<one>
+method:
+
+=head2 iterator
+
+The C<iterator> method takes two positional arguments: the seed for the
+sequence (aka the left-hand side of the C<...> infix operator) and the
+end point (aka the right-hand side of the C<...> infix operator).  It
+returns an C<Iterator> object.
+
+=begin code :lang<raku>
+
+my $iterator = Sequence::Generator.iterator((1,2,4), 64);
+say Seq.new($iterator);  # (1 2 4 8 16 32 64)
+
+=end code
+
+If you like to exclude the first or last generated value, you can pass
+the C<:no-first> and/or the C<:no-last> named arguments.
+
+=begin code :lang<raku>
+
+my $iterator = Sequence::Generator.iterator((1,2,4), 64, :no-first, :no-last);
+say Seq.new($iterator);  # (2 4 8 16 32)
+
+=end code
+
 =head1 AUTHOR
 
 Elizabeth Mattijsen <liz@raku.rocks>
