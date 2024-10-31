@@ -449,6 +449,10 @@ class Sequence::Generator is repr('Uninstantiable') {
             my $result;
 
             $!value := do if nqp::isnull($!slipping) {
+                CATCH {
+                    return IterationEnd  # ignore .pred failing
+                      if .message eq 'Decrement out of range';
+                }
                 # not slipping
                 nqp::handle(
                   ($result := $!producer($!value)),

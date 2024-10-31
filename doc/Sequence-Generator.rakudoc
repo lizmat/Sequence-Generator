@@ -110,7 +110,18 @@ say "ac" ... "ba";  # (ac ab aa bc bb ba)
 
 =end code
 
-Any other combination of strings will return a C<Failure>.
+Any other combination of strings will return a C<Failure>.  If you
+want some other string based sequence semantics, you should probably
+be using the magic increment / decrementfunctionality on strings,
+as offered by the C<.succ> and C<.pred> methods:
+
+=begin code :lang<raku>
+
+say ("zy", *.succ ... *).head(8);   # (zy zz aaa aab aac aad aae aaf)
+
+say ("¹²", *.pred ... *).head(20);  # (¹² ¹¹ ¹⁰ ⁰⁹ ⁰⁸ ⁰⁷ ⁰⁶ ⁰⁵ ⁰⁴ ⁰³ ⁰² ⁰¹ ⁰⁰)
+
+=end code
 
 =head1 BREAKING CHANGES
 

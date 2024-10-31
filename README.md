@@ -80,7 +80,13 @@ Each character will be incremented / decremented according to its counterpart to
 say "ac" ... "ba";  # (ac ab aa bc bb ba)
 ```
 
-Any other combination of strings will return a `Failure`.
+Any other combination of strings will return a `Failure`. If you want some other string based sequence semantics, you should probably be using the magic increment / decrementfunctionality on strings, as offered by the `.succ` and `.pred` methods:
+
+```raku
+say ("zy", *.succ ... *).head(8);   # (zy zz aaa aab aac aad aae aaf)
+
+say ("¹²", *.pred ... *).head(20);  # (¹² ¹¹ ¹⁰ ⁰⁹ ⁰⁸ ⁰⁷ ⁰⁶ ⁰⁵ ⁰⁴ ⁰³ ⁰² ⁰¹ ⁰⁰)
+```
 
 BREAKING CHANGES
 ================
