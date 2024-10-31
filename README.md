@@ -74,11 +74,13 @@ Two strings
 
 A sequence can only be generated for two strings if they have the same number of characters and all of the characters are either in the range of `a .. z`, `A .. Z` or `0 .. 9`. Furthermore, the range of each character of the begin point needs to be in the same range as the associated end point.
 
-Each grapheme will be incremented / decremented according to its counterpart to generate strings, with the rightmost grapheme being incremented / decremented first.
+Each character will be incremented / decremented according to its counterpart to generate strings, with the rightmost character being incremented / decremented first.
 
 ```raku
 say "ac" ... "ba";  # (ac ab aa bc bb ba)
 ```
+
+Any other combination of strings will return a `Failure`.
 
 BREAKING CHANGES
 ================
@@ -123,7 +125,7 @@ The original implementation of the `...` operator would ignore any values **afte
 1,2,3, * + 1, 7,8,9 ... 100;
 ```
 
-This now dies.
+This now returns a `Failure`.
 
 No longer silently ignores values with RHS list starting with *
 ---------------------------------------------------------------
@@ -134,7 +136,7 @@ The original implementation of the `...` operator would ignore any values **afte
 1,2,3 ... *,42,666;
 ```
 
-This now dies.
+This now returns a `Failure`.
 
 LHS elucidation should always have identical types
 --------------------------------------------------
@@ -144,7 +146,7 @@ This implementation requires all values for sequence elucidation (either 2 eleme
 Elucidation of LHS with identical values now fail
 -------------------------------------------------
 
-The original implementation of the `...` operator would produce unexplicable results if the 2 or the last 3 values of the LHS list would contain the same values. This will now die.
+The original implementation of the `...` operator would produce unexplicable results if the 2 or the last 3 values of the LHS list would contain the same values. This will now return `Failure`.
 
 Multiplication factor must be positive
 --------------------------------------
