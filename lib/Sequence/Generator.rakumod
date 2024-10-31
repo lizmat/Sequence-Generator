@@ -844,11 +844,11 @@ class Sequence::Generator {
         )
     }
 
+    # check if two strings can be sequenced
     sub sequenceable(str $left, str $right) {
-        my %group; #= (|("a".."z"), |"A".."Z", |"0".."9") >>=>>> 1;
+        my constant %group = (|("a".."z"), |("A".."Z"), |("0".."9")) >>=>>> 1;
 
         my int $i = nqp::chars($left);
-
         if nqp::chars($right) == $i {
             nqp::while(
               --$i >= 0
@@ -856,10 +856,12 @@ class Sequence::Generator {
                      === %group{nqp::substr($right,$i,1)},
               nqp::null
             );
-            die "not same group" if $i >= 0;
+            $i >= 0
+              ?? Failure.new("not same group")
+              !! True
         }
         else {
-            die "not same length";
+            Failure.new("not same length")
         }
     }
 
@@ -868,17 +870,17 @@ class Sequence::Generator {
       Str:D $first, Str:D $last;; int $no-first, int $no-last
     --> Iterator:D) {
 
-        sequenceable($first, $last);
-
-        $first eq $last
-          ?? $no-first || $no-last                   # same string
-            ?? ().iterator                            # some end excluded
-            !! $first.iterator                        # just the one please
-          !! nqp::chars($first) == 1                   # different string
-            ?? StepCodepoint.new(                       # just one codepoint
-                 $first, $last, $no-first, $no-last)
-            !! StepMultipleCodepoints.new(              # multiple codepoints
-                 $first, $last, $no-first, $no-last)
+        nqp::istype((my $result := sequenceable($first, $last)),Failure)
+          ?? $result
+          !! $first eq $last
+            ?? $no-first || $no-last                   # same string
+              ?? ().iterator                            # some end excluded
+              !! $first.iterator                        # just the one please
+            !! nqp::chars($first) == 1                   # different string
+              ?? StepCodepoint.new(                       # just one codepoint
+                   $first, $last, $no-first, $no-last)
+              !! StepMultipleCodepoints.new(              # multiple codepoints
+                   $first, $last, $no-first, $no-last)
     }
 
     # Iterator for Callable with a numeric endpoint
@@ -904,7 +906,7 @@ class Sequence::Generator {
                    UnendingPred.new($no-first ?? $first.pred !! $first)
                  )
               !! UnendingPred.new($no-first ?? $first.pred !! $first)
-            !! die
+            !! Failure.new("Cannot handle $first.^name() with a numeric endpoint")
     }
 
     # helper methods for lambdas
@@ -967,7 +969,7 @@ class Sequence::Generator {
               )),
               nqp::push($initials,$pulled)
             ),
-            die "Cannot have value after Callable: found $pulled"
+            fail "Cannot have value after Callable: found $pulled"
           )
         );
 
@@ -975,7 +977,8 @@ class Sequence::Generator {
         $iterator := self!elucidate($initials, $endpoint, $no-last)
           if nqp::isnull($iterator);
 
-        $iterator.skip-one if $no-first;
+        $iterator.skip-one
+          if $no-first && nqp::not_i(nqp::istype($iterator,Failure));
         $iterator
     }
 
@@ -986,7 +989,7 @@ class Sequence::Generator {
         nqp::eqaddr((my $endpoint := $right.pull-one),IterationEnd)
           ?? endpoint-mismatch($left, "empty list")
           !! $endpoint == Inf
-            ?? die()  # can never produce later
+            ?? Failure.new("can never produce later")
             !! TwoIterators.new(
                  self!iterator-endpoint($left, $endpoint, $no-first, $no-last),
                  $right
@@ -1141,7 +1144,7 @@ class Sequence::Generator {
             ?? self!elucidateN($seed, $endpoint, $no-last)
             !! $elems
               ?? self.iterator(nqp::shift($seed), $endpoint, 0, $no-last)
-              !! die
+              !! not-deducible($seed.List)
     }
 
 #-- helper subs ----------------------------------------------------------------
@@ -1206,10 +1209,10 @@ class Sequence::Generator {
 
     # make quitting easy
     sub not-deducible(*@values) is hidden-from-backtrace {
-        X::Sequence::Deduction.new(from => @values>>.raku.join(",")).throw
+        X::Sequence::Deduction.new(from => @values>>.raku.join(",")).Failure
     }
     sub endpoint-mismatch(\from,\endpoint) is hidden-from-backtrace {
-        X::Sequence::Endpoint.new(from => from, endpoint => endpoint).throw
+        X::Sequence::Endpoint.new(from => from, endpoint => endpoint).Failure
     }
 }
 
@@ -1218,25 +1221,41 @@ class Sequence::Generator {
 my proto sub infix:<...>(|) is export is equiv(&infix:<...>) {*}
 my multi sub infix:<...>(Mu $a, Whatever) { $a ... Inf }
 my multi sub infix:<...>(Mu $a, Mu $b) {
-    Seq.new: Sequence::Generator.iterator($a, $b, 0, 0)
+    nqp::istype(
+      (my $iterator := Sequence::Generator.iterator($a, $b, 0, 0)),
+      Failure
+    ) ?? $iterator
+      !! Seq.new: $iterator
 }
 
 my proto sub infix:<...^>(|) is export is equiv(&infix:<...>) {*}
 my multi sub infix:<...^>(Mu $a, Whatever) { $a ...^ Inf }
 my multi sub infix:<...^>(Mu $a, Mu $b) {
-    Seq.new: Sequence::Generator.iterator($a, $b, 0, 1)
+    nqp::istype(
+      (my $iterator := Sequence::Generator.iterator($a, $b, 0, 1)),
+      Failure
+    ) ?? $iterator
+      !! Seq.new: $iterator
 }
 
 my proto sub infix:<^...>(|) is export is equiv(&infix:<...>) {*}
 my multi sub infix:<^...>(Mu $a, Whatever) { $a ^... Inf }
 my multi sub infix:<^...>(Mu $a, Mu $b) {
-    Seq.new: Sequence::Generator.iterator($a, $b, 1, 0)
+    nqp::istype(
+      (my $iterator := Sequence::Generator.iterator($a, $b, 1, 0)),
+      Failure
+    ) ?? $iterator
+      !! Seq.new: $iterator
 }
 
 my proto sub infix:<^...^>(|) is export is equiv(&infix:<...>) {*}
 my multi sub infix:<^...^>(Mu $a, Whatever) { $a ^...^ Inf }
 my multi sub infix:<^...^>(Mu $a, Mu $b) {
-    Seq.new: Sequence::Generator.iterator($a, $b, 1, 1)
+    nqp::istype(
+      (my $iterator := Sequence::Generator.iterator($a, $b, 1, 1)),
+      Failure
+    ) ?? $iterator
+      !! Seq.new: $iterator
 }
 
 my constant &infix:<…>   is export := &infix:<<...>>;
