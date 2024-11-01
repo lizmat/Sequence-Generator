@@ -1,6 +1,8 @@
 Revision history for Sequence-Generator
 
 {{$NEXT}}
+
+0.0.3  2024-11-01T13:34:27+01:00
     - refine, document and test the class interface
 
 0.0.2  2024-10-31T12:46:51+01:00
