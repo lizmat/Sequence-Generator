@@ -981,9 +981,11 @@ class Sequence::Generator is repr('Uninstantiable') {
         $iterator := self!elucidate($initials, $endpoint, $no-last)
           if nqp::isnull($iterator);
 
-        $iterator.skip-one
-          if $no-first && nqp::not_i(nqp::istype($iterator,Failure));
-        $iterator
+        $no-first && nqp::not_i(nqp::istype($iterator,Failure))
+          ?? $iterator.skip-one
+            ?? $iterator
+            !! ().iterator
+          !! $iterator
     }
 
     # Iterator for iterators with initial and endpoint values

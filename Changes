@@ -2,6 +2,10 @@ Revision history for Sequence-Generator
 
 {{$NEXT}}
 
+0.0.4  2024-11-03T17:39:54+01:00
+    - fix issue with too short sequence with Callable
+    - add many more tests
+
 0.0.3  2024-11-01T13:34:27+01:00
     - refine, document and test the class interface
 
