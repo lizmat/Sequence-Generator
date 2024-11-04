@@ -119,11 +119,15 @@ class Sequence::Generator is repr('Uninstantiable') {
         has $!step;
         method new($first is raw, $step is raw --> Iterator:D) {
             my $self := nqp::create(self);
-            nqp::bindattr($self,UnendingStep,'$!value',$first - $step);
+            nqp::bindattr($self,UnendingStep,'$!value',$first);
             nqp::bindattr($self,UnendingStep,'$!step', $step);
             $self
         }
-        method pull-one() is raw { $!value := $!value + $!step }
+        method pull-one() is raw {
+            my $current := $!value;
+            $!value := $current + $!step;
+            $current
+        }
         method is-lazy(--> True) { }
     }
 
@@ -135,15 +139,19 @@ class Sequence::Generator is repr('Uninstantiable') {
 
         method new($first is raw, $step is raw, $downto is raw --> Iterator:D) {
             my $self := nqp::create(self);
-            nqp::bindattr($self,StepDownto,'$!value', $first - $step);
+            nqp::bindattr($self,StepDownto,'$!value', $first);
             nqp::bindattr($self,StepDownto,'$!step',  $step);
             nqp::bindattr($self,StepDownto,'$!downto',$downto);
             $self
         }
         method pull-one() is raw {
-            ($!value := $!value + $!step) < $!downto
-              ?? IterationEnd
-              !! $!value
+            if (my $current := $!value) < $!downto {
+                IterationEnd
+            }
+            else {
+                $!value := $current + $!step;
+                $current
+            }
         }
         method count-only(--> Int:D) { (($!downto - $!value) / $!step).Int }
         method bool-only(--> Bool:D) { $!value + $!step >= $!downto }
@@ -157,15 +165,19 @@ class Sequence::Generator is repr('Uninstantiable') {
 
         method new($first is raw, $step is raw, $upto is raw --> Iterator:D) {
             my $self := nqp::create(self);
-            nqp::bindattr($self,StepUpto,'$!value',$first - $step);
+            nqp::bindattr($self,StepUpto,'$!value',$first);
             nqp::bindattr($self,StepUpto,'$!step', $step);
             nqp::bindattr($self,StepUpto,'$!upto', $upto);
             $self
         }
         method pull-one() is raw {
-            ($!value := $!value + $!step) > $!upto
-              ?? IterationEnd
-              !! $!value
+            if (my $current := $!value) > $!upto {
+                IterationEnd
+            }
+            else {
+                $!value := $current + $!step;
+                $current
+            }
         }
         method count-only(--> Int:D) { (($!upto - $!value) / $!step).Int }
         method bool-only(--> Bool:D) { $!value + $!step <= $!upto }
