@@ -52,12 +52,28 @@ say 10 ... 1;   # (10 9 8 7 6 5 4 3 2 1)
 say 10.5 ... 1; # (10.5 9.5 8.5 7.5 6.5 5.5 4.5 3.5 2.5 1.5)
 ```
 
-If you need other increments or decrements, you must use elucidation:
+If you need other increments or decrements, you must either use elucidation or provide a `Callable` that will do the production of values.
+
+Sequence elucidation
+--------------------
+
+If the left hand side just consists of two or more `Real` numbers, then the last three (or two if there are only two) values will be used to try to determine the type of sequence in a process called "elucidation".
+
+If the difference between the values is constant (or if there are only two values), then the sequence is called to be "arithmetic": the difference will then be assumed to the the step to be applied for each subsequent value produced.
 
 ```raku
-say 1, 3 ... 10;  # (1 3 5 7 9)
-say 10, 8 ... 1;  # (10 8 6 4 2)
+say 1, 3 ... 10;     # (1 3 5 7 9)
+say 10, 8, 6 ... 1;  # (10 8 6 4 2)
 ```
+
+If the division between the values is constant, then the sequence is called to the "geometric": that value will then be used to multiply to produce the next value.
+
+```raku
+say 1 2 4 8 16 32 64;  # (1 2 4 8 16 32 64)
+say 64, 32, 16 ... 1;  # (64 32 16 8 4 2 1)
+```
+
+If elucidation fails, a `Failure` will be returned with as much information possible to indicate the reason of the failure.
 
 Non-numeric endpoints
 ---------------------
@@ -80,7 +96,7 @@ Each character will be incremented / decremented according to its counterpart to
 say "ac" ... "ba";  # (ac ab aa bc bb ba)
 ```
 
-Any other combination of strings will return a `Failure`. If you want some other string based sequence semantics, you should probably be using the magic increment / decrementfunctionality on strings, as offered by the `.succ` and `.pred` methods:
+Any other combination of strings will return a `Failure`. If you want some other string based sequence semantics, you should probably be using the magic increment / decrementfunctionality on strings, as offered by the `.succ` and `.pred` methods, and use a `Callable` to produce the values.
 
 ```raku
 say ("zy", *.succ ... *).head(8);   # (zy zz aaa aab aac aad aae aaf)
