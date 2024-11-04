@@ -1087,8 +1087,8 @@ class Sequence::Generator is repr('Uninstantiable') {
               ?? TwoIterators.new($seed.iterator,
                    UnendingStep.new($three + $step, $step))
               !! nqp::istype($endpoint,Real)
-                ?? Lambda1Accepts.new($seed, * + $step,
-                     step-endpoint($step, $endpoint), $no-last)
+                ?? TwoIterators.new($seed.iterator,
+                     step-to($three + $step, $step, $endpoint, $no-last))
                 !! nqp::istype($endpoint,Code)
                   ?? Lambda1Accepts.new($seed, * + $step, $endpoint, $no-last)
                   !! endpoint-mismatch($seed, $endpoint)
@@ -1194,11 +1194,6 @@ class Sequence::Generator is repr('Uninstantiable') {
           nqp::unshift($buffer,Any)
         );
         $buffer
-    }
-
-    # helper sub to return correct stepper ender
-    sub step-endpoint($step, $endpoint) {
-        $step > 0 ?? * >= $endpoint !! * <= $endpoint
     }
 
     # helper sub to return correct multiplication ender

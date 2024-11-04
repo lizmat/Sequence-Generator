@@ -2,6 +2,10 @@ Revision history for Sequence-Generator
 
 {{$NEXT}}
 
+0.0.5  2024-11-04T14:59:35+01:00
+    - fix issue with elucidating arithmetic sequences
+    - add documentation about elucidation
+
 0.0.4  2024-11-03T17:39:54+01:00
     - fix issue with too short sequence with Callable
     - add many more tests
