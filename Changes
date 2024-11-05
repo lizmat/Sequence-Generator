@@ -1,6 +1,8 @@
 Revision history for Sequence-Generator
 
 {{$NEXT}}
+
+0.0.6  2024-11-05T10:01:24+01:00
     - fix issue with elucidating geometric sequences
 
 0.0.5  2024-11-04T14:59:35+01:00
