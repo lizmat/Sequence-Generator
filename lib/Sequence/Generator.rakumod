@@ -131,6 +131,24 @@ class Sequence::Generator is repr('Uninstantiable') {
         method is-lazy(--> True) { }
     }
 
+    # Unending iterator for constant numeric multiplication
+    class UnendingMult does Iterator {
+        has $!value;
+        has $!mult;
+        method new($first is raw, $mult is raw --> Iterator:D) {
+            my $self := nqp::create(self);
+            nqp::bindattr($self,UnendingMult,'$!value',$first);
+            nqp::bindattr($self,UnendingMult,'$!mult', $mult);
+            $self
+        }
+        method pull-one() is raw {
+            my $current := $!value;
+            $!value := $current * $!mult;
+            $current
+        }
+        method is-lazy(--> True) { }
+    }
+
     # Iterator for constant numeric negative increment to given numeric
     class StepDownto does PredictiveIterator {
         has $!value;
@@ -157,6 +175,30 @@ class Sequence::Generator is repr('Uninstantiable') {
         method bool-only(--> Bool:D) { $!value + $!step >= $!downto }
     }
 
+    # Iterator for constant numeric multiplier < 1
+    class MultDownto does Iterator {
+        has $!value;
+        has $!mult;
+        has $!downto;
+
+        method new($first is raw, $mult is raw, $downto is raw --> Iterator:D) {
+            my $self := nqp::create(self);
+            nqp::bindattr($self,MultDownto,'$!value', $first);
+            nqp::bindattr($self,MultDownto,'$!mult',  $mult);
+            nqp::bindattr($self,MultDownto,'$!downto',$downto);
+            $self
+        }
+        method pull-one() is raw {
+            if (my $current := $!value) < $!downto {
+                IterationEnd
+            }
+            else {
+                $!value := $current * $!mult;
+                $current
+            }
+        }
+    }
+
     # Iterator for constant numeric increment upto given numeric
     class StepUpto does PredictiveIterator {
         has $!value;
@@ -181,6 +223,31 @@ class Sequence::Generator is repr('Uninstantiable') {
         }
         method count-only(--> Int:D) { (($!upto - $!value) / $!step).Int }
         method bool-only(--> Bool:D) { $!value + $!step <= $!upto }
+        method is-monotonically-increasing(--> True) { }
+    }
+
+    # Iterator for constant numeric multiplier > 1
+    class MultUpto does Iterator {
+        has $!value;
+        has $!mult;
+        has $!upto;
+
+        method new($first is raw, $mult is raw, $upto is raw --> Iterator:D) {
+            my $self := nqp::create(self);
+            nqp::bindattr($self,MultUpto,'$!value',$first);
+            nqp::bindattr($self,MultUpto,'$!mult', $mult);
+            nqp::bindattr($self,MultUpto,'$!upto', $upto);
+            $self
+        }
+        method pull-one() is raw {
+            if (my $current := $!value) > $!upto {
+                IterationEnd
+            }
+            else {
+                $!value := $current * $!mult;
+                $current
+            }
+        }
         method is-monotonically-increasing(--> True) { }
     }
 
@@ -1096,11 +1163,15 @@ class Sequence::Generator is repr('Uninstantiable') {
 
             # arithmetic sequence
             ?? $endpoint == Inf
-              ?? TwoIterators.new($seed.iterator,
-                   UnendingStep.new($three + $step, $step))
+              ?? TwoIterators.new(
+                   $seed.iterator,
+                   UnendingStep.new($three + $step, $step)
+                 )
               !! nqp::istype($endpoint,Real)
-                ?? TwoIterators.new($seed.iterator,
-                     step-to($three + $step, $step, $endpoint, $no-last))
+                ?? TwoIterators.new(
+                     $seed.iterator,
+                     step-to($three + $step, $step, $endpoint, $no-last)
+                   )
                 !! nqp::istype($endpoint,Code)
                   ?? Lambda1Accepts.new($seed, * + $step, $endpoint, $no-last)
                   !! endpoint-mismatch($seed, $endpoint)
@@ -1112,10 +1183,15 @@ class Sequence::Generator is repr('Uninstantiable') {
 
               # geometric sequence
               ?? $endpoint == Inf
-                ?? Lambda1.new($seed, * * $mult, $no-last)
+                ?? TwoIterators.new(
+                     $seed.iterator,
+                     UnendingMult.new($three * $mult, $mult)
+                   )
                 !! nqp::istype($endpoint,Real)
-                  ?? Lambda1Accepts.new($seed, * * $mult,
-                       mult-endpoint($mult, $endpoint), $no-last)
+                  ?? TwoIterators.new(
+                       $seed.iterator,
+                       mult-to($three * $mult, $mult, $endpoint, $no-last)
+                     )
                   !! nqp::istype($endpoint,Code)
                     ?? Lambda1Accepts.new($seed, * * $mult, $endpoint, $no-last)
                     !! endpoint-mismatch($seed, $endpoint)
@@ -1218,6 +1294,16 @@ class Sequence::Generator is repr('Uninstantiable') {
         $step > 0
           ?? StepUpto.new(  $value, $step, $no-last ?? $end - $step !! $end)
           !! StepDownto.new($value, $step, $no-last ?? $end - $step !! $end)
+    }
+
+    # helper sub to return correct multiplier iterator
+    sub mult-to($value, $mult, $end, int $no-last --> Iterator:D) {
+        my $iterator := $mult > 1
+          ?? MultUpto.new(  $value, $mult, $end)
+          !! MultDownto.new($value, $mult, $end);
+        $no-last
+          ?? AllButLast.new($iterator)
+          !! $iterator
     }
 
     # make quitting easy
