@@ -39,7 +39,7 @@ endpoint of the sequence.  This allows for the following syntax to work:
 =begin code :lang<raku>
 for 42...  { .say; last };  # 42
 for 42^... { .say; last };  # 42
-=end
+=end code
 
 =head1 RULES
 

@@ -30,27 +30,24 @@ As an additional feature, this module also exports a postfix `...` and postfix `
 ```raku
 for 42...  { .say; last };  # 42
 for 42^... { .say; last };  # 42
-=end
+```
 
-=head1 RULES
+RULES
+=====
 
-This describes the rules that are being applied to the begin and end
-points of these generated sequences.
+This describes the rules that are being applied to the begin and end points of these generated sequences.
 
-=head2 Meaning of carets
+Meaning of carets
+-----------------
 
-The carets C<^> on the infix C<...> operator are interpreted in a very
-strict way.  On the left-hand side (C<^...>) it means that the B<initial>
-value will B<not> be produced.  On the right-hand side it means that
-the final value will B<not> be produced.
+The carets `^` on the infix `...` operator are interpreted in a very strict way. On the left-hand side (`^...`) it means that the **initial** value will **not** be produced. On the right-hand side it means that the final value will **not** be produced.
 
-=head2 Two Real numbers
+Two Real numbers
+----------------
 
-If the end point is larger than the begin point, then the functionality
-is the same as the C<..> infix operator: add B<1> for each step until
-the value is larger than the end point value.
+If the end point is larger than the begin point, then the functionality is the same as the `..` infix operator: add **1** for each step until the value is larger than the end point value.
 
-=begin code :lang<raku>
+```raku
 say 1 ... 10;    # (1 2 3 4 5 6 7 8 9 10)
 say 1.5 ... 10;  # (1.5 2.5 3.5 4.5 5.5 6.5 7.5 8.5 9.5)
 ```

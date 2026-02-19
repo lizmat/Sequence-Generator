@@ -4,7 +4,7 @@
   "specVersion": "1.6",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-02-19T17:22:53+00:00",
+    "timestamp": "2026-02-19T18:45:12+00:00",
     "lifecycles": [
       {
         "phase": "pre-build"
@@ -19,7 +19,7 @@
     "component": {
       "type": "library",
       "mime-type": "text/plain",
-      "bom-ref": "pkg:raku/zef:lizmat/Sequence::Generator@0.0.7",
+      "bom-ref": "pkg:raku/zef:lizmat/Sequence::Generator@0.0.8",
       "authors": [
         {
           "bom-ref": "ElizabethMattijsen",
@@ -29,7 +29,7 @@
       "publisher": "zef",
       "group": "zef:lizmat",
       "name": "Sequence::Generator",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "description": "Generate sequences of values from endpoints",
       "scope": "required",
       "licenses": [
@@ -41,14 +41,14 @@
           }
         }
       ],
-      "purl": "pkg:raku/zef:lizmat/Sequence::Generator@0.0.7",
+      "purl": "pkg:raku/zef:lizmat/Sequence::Generator@0.0.8",
       "externalReferences": [
         {
           "url": "https://github.com/lizmat/Sequence-Generator",
           "type": "distribution"
         },
         {
-          "url": "https://raku.land/zef:lizmat/Sequence::Generator?v=0.0.7",
+          "url": "https://raku.land/zef:lizmat/Sequence::Generator?v=0.0.8",
           "type": "documentation"
         },
         {
@@ -60,7 +60,7 @@
           "type": "license"
         },
         {
-          "url": "https://github.com/lizmat/Sequence-Generator/archive/refs/tags/0.0.7.zip",
+          "url": "https://github.com/lizmat/Sequence-Generator/archive/refs/tags/0.0.8.zip",
           "type": "source-distribution"
         },
         {
@@ -241,7 +241,7 @@
       "type": "distribution"
     },
     {
-      "url": "https://raku.land/zef:lizmat/Sequence::Generator?v=0.0.7",
+      "url": "https://raku.land/zef:lizmat/Sequence::Generator?v=0.0.8",
       "type": "documentation"
     },
     {
@@ -253,7 +253,7 @@
       "type": "license"
     },
     {
-      "url": "https://github.com/lizmat/Sequence-Generator/archive/refs/tags/0.0.7.zip",
+      "url": "https://github.com/lizmat/Sequence-Generator/archive/refs/tags/0.0.8.zip",
       "type": "source-distribution"
     },
     {

@@ -2,6 +2,9 @@ Revision history for Sequence-Generator
 
 {{$NEXT}}
 
+0.0.8  2026-02-19T19:44:43+01:00
+    - Fix documentation rendering issue
+
 0.0.7  2026-02-19T18:22:18+01:00
     - Add postfix ... and ^... operators, to allow for 42...
       syntax, in response to request by Brian Duggan++
