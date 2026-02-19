@@ -1,4 +1,5 @@
 .precomp/
 /Sequence-Generator-*
 /releases/
+*.rakucov
 ?

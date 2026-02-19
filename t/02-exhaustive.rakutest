@@ -62,7 +62,18 @@ sub test-seq($description, Mu \seed, Mu \endpoint, \list) {
 
     # run the tests
     subtest $description => {
-        plan 4;
+
+        my $iterator := (infix:<...>(  seed, $endpoint)).iterator;
+        if $iterator ~~ PredictiveIterator {
+            plan 6;
+
+            isa-ok $iterator.bool-only, Bool, 'does boolification work';
+            isa-ok $iterator.count-only, Int, 'does numerification work';
+        }
+        else {
+            plan 4;
+        }
+
         is-deeply infix:<...>(  seed, $endpoint).head(10).List, $result,
           " ...  {$result.raku}";
         is-deeply infix:<...^>( seed, $endpoint).head(10).List, $resultV,

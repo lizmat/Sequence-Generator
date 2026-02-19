@@ -1,24 +1,29 @@
 Revision history for Sequence-Generator
 
 {{$NEXT}}
+    - Add postfix ... and ^... operators, to allow for 42...
+      syntax, in response to request by Brian Duggan++
+    - Add preliminary coverage testing (now at 63%)
+    - Modernize META6 info
+    - Update copyright year
 
 0.0.6  2024-11-05T10:01:24+01:00
-    - fix issue with elucidating geometric sequences
+    - Fix issue with elucidating geometric sequences
 
 0.0.5  2024-11-04T14:59:35+01:00
-    - fix issue with elucidating arithmetic sequences
-    - add documentation about elucidation
+    - Fix issue with elucidating arithmetic sequences
+    - Add documentation about elucidation
 
 0.0.4  2024-11-03T17:39:54+01:00
-    - fix issue with too short sequence with Callable
-    - add many more tests
+    - Fix issue with too short sequence with Callable
+    - Add many more tests
 
 0.0.3  2024-11-01T13:34:27+01:00
-    - refine, document and test the class interface
+    - Refine, document and test the class interface
 
 0.0.2  2024-10-31T12:46:51+01:00
-    - add support for Iterables as endpoint
-    - don't die on problems, but return a Failure
+    - Add support for Iterables as endpoint
+    - Don't die on problems, but return a Failure
 
 0.0.1  2024-10-30T13:06:57+01:00
     - Initial version

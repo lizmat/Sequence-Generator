@@ -8,7 +8,7 @@ class Sequence::Generator is repr('Uninstantiable') {
     # Create iterator that produces all values *except* the last of a given
     # iterator.  Returns an empty iterator if the given iterator did not
     # produce any value.
-    my role AllButLastRole {
+    my role AllButLastRole {  # UNCOVERABLE
         has $!iterator;
         has $!value;
 
@@ -49,7 +49,7 @@ class Sequence::Generator is repr('Uninstantiable') {
         }
         method pull-one() is raw {
             my $pulled := $!active.pull-one;
-            if nqp::eqaddr($pulled,IterationEnd) {
+            if nqp::eqaddr($pulled,IterationEnd) {  # UNCOVERABLE
                 if nqp::isnull($!spare) {
                     IterationEnd
                 }
@@ -585,11 +585,11 @@ class Sequence::Generator is repr('Uninstantiable') {
             }
 
             if $!endpoint.ACCEPTS($result) {
-                if $!no-last {
+                if $!no-last {  #UNCOVERABLE
                     IterationEnd       # do not bother to produce last value
                 }
                 else {                 # after this we're done
-                    $!producer := nqp::null;
+                    $!producer := nqp::null;  #UNCOVERABLE
                     $result
                 }
             }
@@ -626,11 +626,11 @@ class Sequence::Generator is repr('Uninstantiable') {
             }
 
             # slipping
-            elsif nqp::eqaddr(($result := self.slip-one),IterationEnd) {
+            elsif nqp::eqaddr(($result := self.slip-one),IterationEnd) {  #UNCOVERABLE
                 return self.pull-one;   # recurse to handle potential Slip
             }
 
-            $!value1 := $!value2;
+            $!value1 := $!value2;  #UNCOVERABLE
             $!value2 := $result;
         }
         method is-lazy(--> True) is raw { }
@@ -669,21 +669,21 @@ class Sequence::Generator is repr('Uninstantiable') {
             }
 
             # slipping
-            elsif nqp::eqaddr(($result := self.slip-one),IterationEnd) {
+            elsif nqp::eqaddr(($result := self.slip-one),IterationEnd) {  #UNCOVERABLE
                 return self.pull-one;  # recurse to handle potential Slip
             }
 
             if $!endpoint.ACCEPTS($result) {
-                if $!no-last {
+                if $!no-last {  #UNCOVERABLE
                     IterationEnd       # do not bother to produce last value
                 }
                 else {                 # after this we're done
-                    $!producer := nqp::null;
+                    $!producer := nqp::null;  #UNCOVERABLE
                     $result
                 }
             }
             else {
-                $!value1 := $!value2;
+                $!value1 := $!value2;  #UNCOVERABLE
                 $!value2 := $result
             }
         }
@@ -721,7 +721,7 @@ class Sequence::Generator is repr('Uninstantiable') {
             }
 
             # slipping
-            elsif nqp::eqaddr(($result := self.slip-one),IterationEnd) {
+            elsif nqp::eqaddr(($result := self.slip-one),IterationEnd) {  #UNCOVERABLE
                 return self.pull-one;  # recurse to handle potential Slip
             }
 
@@ -1361,5 +1361,8 @@ my constant &infix:<…>   is export := &infix:<<...>>;
 my constant &infix:<…^>  is export := &infix:<<...^>>;
 my constant &infix:<^…>  is export := &infix:<<^...>>;
 my constant &infix:<^…^> is export := &infix:<<^...^>>;
+
+my sub postfix:<...>( Mu $a) is export { $a  ... * }
+my sub postfix:<^...>(Mu $a) is export { $a ^... * }
 
 # # vim: expandtab shiftwidth=4

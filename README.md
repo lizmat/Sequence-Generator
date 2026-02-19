@@ -25,22 +25,32 @@ This module started out as an attempt to make the `...` operator (and friends) m
 
 This module is between 4x and 20x faster than the Raku 6.d implementation.
 
-RULES
-=====
-
-This describes the rules that are being applied to the begin and end points of these generated sequences.
-
-Meaning of carets
------------------
-
-The carets `^` on the infix `...` operator are interpreted in a very strict way. On the left-hand side (`^...`) it means that the **initial** value will **not** be produced. On the right-hand side it means that the final value will **not** be produced.
-
-Two Real numbers
-----------------
-
-If the end point is larger than the begin point, then the functionality is the same as the `..` infix operator: add **1** for each step until the value is larger than the end point value.
+As an additional feature, this module also exports a postfix `...` and postfix `^...` operator. These allow not having to specify `*` as the endpoint of the sequence. This allows for the following syntax to work:
 
 ```raku
+for 42...  { .say; last };  # 42
+for 42^... { .say; last };  # 42
+=end
+
+=head1 RULES
+
+This describes the rules that are being applied to the begin and end
+points of these generated sequences.
+
+=head2 Meaning of carets
+
+The carets C<^> on the infix C<...> operator are interpreted in a very
+strict way.  On the left-hand side (C<^...>) it means that the B<initial>
+value will B<not> be produced.  On the right-hand side it means that
+the final value will B<not> be produced.
+
+=head2 Two Real numbers
+
+If the end point is larger than the begin point, then the functionality
+is the same as the C<..> infix operator: add B<1> for each step until
+the value is larger than the end point value.
+
+=begin code :lang<raku>
 say 1 ... 10;    # (1 2 3 4 5 6 7 8 9 10)
 say 1.5 ... 10;  # (1.5 2.5 3.5 4.5 5.5 6.5 7.5 8.5 9.5)
 ```
@@ -209,7 +219,7 @@ If you like this module, or what I'm doing more generally, committing to a [smal
 COPYRIGHT AND LICENSE
 =====================
 
-Copyright 2020, 2024 Elizabeth Mattijsen
+Copyright 2020, 2024, 2026 Elizabeth Mattijsen
 
 This library is free software; you can redistribute it and/or modify it under the Artistic License 2.0.
 

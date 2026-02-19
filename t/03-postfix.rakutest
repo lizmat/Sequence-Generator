@@ -1,0 +1,33 @@
+use Test;
+use Sequence::Generator;
+
+my @types = < ... ^... >;
+
+plan @types * 2 + 4;
+
+for @types -> $type {
+
+    my $name = "&postfix:<$type>";
+    ok UNIT::{$name}:exists,
+      "is $name imported?";
+    nok Sequence::Generator::{$name}:exists,
+      "is $name not externally accessible?";
+}
+
+my $first;
+for 42... {
+    $first = $_;
+    last;
+}
+is-deeply $first, 42, 'did it start at 42';
+
+for 42^... {
+    $first = $_;
+    last;
+}
+is-deeply $first, 43, 'did it start at 43';
+
+ok (42...).lazy,  'is 42... lazy';
+ok (42^...).lazy, 'is 42^... lazy';
+
+# vim: expandtab shiftwidth=4

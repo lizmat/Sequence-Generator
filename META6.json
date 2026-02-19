@@ -7,16 +7,21 @@
   ],
   "depends": [
   ],
-  "description": "generate sequences of values from endpoints",
+  "description": "Generate sequences of values from endpoints",
   "license": "Artistic-2.0",
   "name": "Sequence::Generator",
-  "perl": "6.c",
   "provides": {
     "Sequence::Generator": "lib/Sequence/Generator.rakumod"
   },
+  "raku": "6.c",
   "resources": [
   ],
   "source-url": "https://github.com/lizmat/Sequence-Generator.git",
+  "support": {
+    "bugtracker": "https://github.com/lizmat/Sequence-Generator/issues",
+    "email": "liz@raku.rocks",
+    "source": "https://github.com/lizmat/Sequence-Generator.git"
+  },
   "tags": [
     "UTILS",
     "SEQUENCE"
